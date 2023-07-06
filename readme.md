@@ -2,6 +2,8 @@
 If you are a user/player, please check the workshop for more info.  
 [Workshop](https://steamcommunity.com/app/573090/workshop/) *TODO: workshop link*  
 
+Progress, updates and planned features can be found on the trello board.  
+[Trello board](https://trello.com/b/kBC7MxyY/avrilstransportaddon).  
 
 # Contributing
 This repo is designed to use NameousChangey's [LifeBoatAPI](https://marketplace.visualstudio.com/items?itemName=NameousChangey.lifeboatapi) vscode extension.  
