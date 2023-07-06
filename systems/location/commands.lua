@@ -102,10 +102,8 @@ Command.new("location")
 						if locationConfig == nil then
 							return -1, err
 						end
-						local locationData = LocationSystem.data.locations[locationConfig.name]
-						local storage = locationData.storage
-						storage[producibleConfig.name] = (storage[producibleConfig.name] or 0) + amount
-						return 0, ("%s now has %.2f (%s%.2f) of '%s'"):format(locationConfig.name, storage[producibleConfig.name], amount < 0 and "-" or "+", amount, producibleConfig.name)
+						LocationSystem.storageAdd(locationConfig, producibleConfig, amount, "force")
+						return 0, ("%s now has %g (%s%+.2f) of '%s'"):format(locationConfig.name, round(LocationSystem.storageGet(locationConfig, producibleConfig), 1), amount, amount, producibleConfig.name)
 					end)
 			)
 			:addSubcommand(
@@ -120,9 +118,9 @@ Command.new("location")
 						if locationConfig == nil then
 							return -1, err
 						end
-						local locationData = LocationSystem.data.locations[locationConfig.name]
-						locationData.storage[producibleConfig.name] = amount
-						return 0, ("%s now has %.2f of '%s'"):format(locationConfig.name, amount, producibleConfig.name)
+						local adjust = amount - LocationSystem.storageGet(locationConfig, producibleConfig)
+						LocationSystem.storageAdd(locationConfig, producibleConfig, adjust, "force")
+						return 0, ("%s now has %g of '%s'"):format(locationConfig.name, round(LocationSystem.storageGet(locationConfig, producibleConfig), 1), producibleConfig.name)
 					end)
 			)
 			:addSubcommand(

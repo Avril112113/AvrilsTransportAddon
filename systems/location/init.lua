@@ -86,6 +86,23 @@ function LocationSystem.onPlayerJoin(player)
 	LocationSystem.syncMap(player)
 end
 
+--- @param player Player
+--- @param is_open boolean false if the map was closed, true if the map was opened
+function LocationSystem.onToggleMap(player, is_open)
+	if is_open then
+		LocationSystem.syncMap(player)
+	end
+end
+
+
+---@param locationConfig LocationConfig
+---@param producibleConfig ProducibleConfig
+---@return number remainder
+function LocationSystem.storageGet(locationConfig, producibleConfig)
+	local locationData = LocationSystem.data.locations[locationConfig.name]
+	local storage = locationData.storage
+	return storage[producibleConfig.name]
+end
 
 ---@param locationConfig LocationConfig
 ---@param producibleConfig ProducibleConfig
