@@ -50,11 +50,10 @@
     ],
     "Lua.runtime.pathStrict": true,
     "Lua.workspace.library": [
-        "c:/Users/dude/Desktop/ProgrammingProjects/Lua/Stormworks/AvrilsTransportAddon/",
         "c:/Users/dude/.vscode/extensions/nameouschangey.lifeboatapi-0.0.33/assets/lua/Common/",
         "c:/Users/dude/.vscode/extensions/nameouschangey.lifeboatapi-0.0.33/assets/lua/Addon/",
         "../AvrilsTransportAddonMCs/shared/",
-        "c:/Users/dude/Desktop/ProgrammingProjects/Lua/Stormworks/AvrilsTransportAddon/_build/libs/"
+        "_build/libs/"
     ],
     "lifeboatapi.stormworks.libs.gitLibraries": [
         {
