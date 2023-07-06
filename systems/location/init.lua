@@ -10,89 +10,95 @@ LocationSystem.producibles = {}
 LocationSystem.mapId = server.getMapID()
 
 
----@param is_world_create boolean Only returns true when the world is first created.
-function LocationSystem.onCreate(is_world_create)
-	LocationSystem.data = SystemManager.getSaveData(LocationSystem)
-	if LocationSystem.data.map == nil then
-		LocationSystem.data.map = {shown=false, production=false, storage=false}
-	end
-	if LocationSystem.data.locations == nil then
-		---@type table<string,LocationData>
-		LocationSystem.data.locations = {}
-	end
-	for locationName, locationConfig in pairs(LocationSystem.locations) do
-		---@class LocationData
-		local locationData = LocationSystem.data.locations[locationName]
-		if locationData == nil then
-			locationData = {}
-			LocationSystem.data.locations[locationName] = locationData
+
+SystemManager.addEventHandler(LocationSystem, "onCreate", 100,
+	function(is_world_create)
+		LocationSystem.data = SystemManager.getSaveData(LocationSystem)
+		if LocationSystem.data.map == nil then
+			LocationSystem.data.map = {shown=false, production=false, storage=false}
 		end
-		if locationData.storage == nil then
-			---@type table<string, number>
-			locationData.storage = {}
+		if LocationSystem.data.locations == nil then
+			---@type table<string,LocationData>
+			LocationSystem.data.locations = {}
 		end
-		for _, recipe in ipairs(locationConfig.production) do
-			for producible, amount in pairs(recipe.consumes) do
-				if locationData.storage[producible.name] == nil then
-					locationData.storage[producible.name] = 0
+		for locationName, locationConfig in pairs(LocationSystem.locations) do
+			---@class LocationData
+			local locationData = LocationSystem.data.locations[locationName]
+			if locationData == nil then
+				locationData = {}
+				LocationSystem.data.locations[locationName] = locationData
+			end
+			if locationData.storage == nil then
+				---@type table<string, number>
+				locationData.storage = {}
+			end
+			for _, recipe in ipairs(locationConfig.production) do
+				for producible, amount in pairs(recipe.consumes) do
+					if locationData.storage[producible.name] == nil then
+						locationData.storage[producible.name] = 0
+					end
+				end
+				for producible, amount in pairs(recipe.produces) do
+					if locationData.storage[producible.name] == nil then
+						locationData.storage[producible.name] = 0
+					end
 				end
 			end
-			for producible, amount in pairs(recipe.produces) do
-				if locationData.storage[producible.name] == nil then
-					locationData.storage[producible.name] = 0
-				end
+			if locationData.productionTicks == nil then
+				---@type table<string, integer>
+				locationData.productionTicks = {}
 			end
 		end
-		if locationData.productionTicks == nil then
-			---@type table<string, integer>
-			locationData.productionTicks = {}
+	
+		for name, locationConfig in pairs(LocationSystem.locations) do
+			local ok, msg = locationConfig:processZones()
+			if not ok then
+				log_error(("Failed to process location '%s': %s"):format(locationConfig.name, msg))
+				LocationSystem.locations[name] = nil
+			end
 		end
-	end
-
-	for name, locationConfig in pairs(LocationSystem.locations) do
-		local ok, msg = locationConfig:processZones()
-		if not ok then
-			log_error(("Failed to process location '%s': %s"):format(locationConfig.name, msg))
-			LocationSystem.locations[name] = nil
+	
+		if is_world_create then
+			LocationSystem.spawnInterfaces()
 		end
+	
+		LocationSystem.syncMap()
 	end
+)
 
-	if is_world_create then
-		LocationSystem.spawnInterfaces()
+SystemManager.addEventHandler(LocationSystem, "onDestroy", 100,
+	function()
+		server.removeMapID(-1, LocationSystem.mapId)
 	end
-
-	LocationSystem.syncMap()
-end
-
-function LocationSystem.onDestroy()
-	server.removeMapID(-1, LocationSystem.mapId)
-end
+)
 
 local tick = 0
----@param game_ticks number the number of ticks since the last onTick call (normally 1, while sleeping 400.)
-function LocationSystem.onTick(game_ticks)
-	tick = tick + 1
-	local pendingUpdateTicks = LocationSystem.data.pendingUpdateTicks or 0
-	pendingUpdateTicks = pendingUpdateTicks + game_ticks
-	if tick % RESOURCE_UPDATE_RATE == 0 then
-		LocationSystem.updateProduction(pendingUpdateTicks)
-		pendingUpdateTicks = 0
+SystemManager.addEventHandler(LocationSystem, "onTick", 100,
+	function(game_ticks)
+		tick = tick + 1
+		local pendingUpdateTicks = LocationSystem.data.pendingUpdateTicks or 0
+		pendingUpdateTicks = pendingUpdateTicks + game_ticks
+		if tick % RESOURCE_UPDATE_RATE == 0 then
+			LocationSystem.updateProduction(pendingUpdateTicks)
+			pendingUpdateTicks = 0
+		end
+		LocationSystem.data.pendingUpdateTicks = pendingUpdateTicks
 	end
-	LocationSystem.data.pendingUpdateTicks = pendingUpdateTicks
-end
+)
 
----@param player Player
-function LocationSystem.onPlayerJoin(player)
-	LocationSystem.syncMap(player)
-end
-
---- @param player Player
---- @param is_open boolean false if the map was closed, true if the map was opened
-function LocationSystem.onToggleMap(player, is_open)
-	if is_open then
+SystemManager.addEventHandler(LocationSystem, "onPlayerJoin", 100,
+	function(player)
 		LocationSystem.syncMap(player)
 	end
-end
+)
+
+SystemManager.addEventHandler(LocationSystem, "onToggleMap", 100,
+	function(player, is_open)
+		if is_open then
+			LocationSystem.syncMap(player)
+		end
+	end
+)
 
 
 ---@param locationConfig LocationConfig
@@ -324,9 +330,6 @@ function LocationSystem.getClosestLocation(transform)
 	return closestLocation, closestDist
 end
 
-
-
-SystemManager.registerSystem(LocationSystem)
 
 ---@require_folder systems/location
 require("systems.location.commands")

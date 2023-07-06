@@ -16,19 +16,20 @@ end
 CompanySystem = {name="CompanySystem"}
 
 
----@param is_world_create boolean Only returns true when the world is first created.
-function CompanySystem.onCreate(is_world_create)
-	CompanySystem.data = SystemManager.getSaveData(CompanySystem)
+SystemManager.addEventHandler(CompanySystem, "onCreate", 100,
+	function (is_world_create)
+		CompanySystem.data = SystemManager.getSaveData(CompanySystem)
 
-	if CompanySystem.data.companies == nil then
-		---@type table<string, CompanyData>
-		CompanySystem.data.companies = {}
+		if CompanySystem.data.companies == nil then
+			---@type table<string, CompanyData>
+			CompanySystem.data.companies = {}
+		end
+		if CompanySystem.data.members == nil then
+			---@type table<SteamId, string>
+			CompanySystem.data.members = {}
+		end
 	end
-	if CompanySystem.data.members == nil then
-		---@type table<SteamId, string>
-		CompanySystem.data.members = {}
-	end
-end
+)
 
 
 ---@return table<string, CompanyData>
@@ -114,9 +115,6 @@ function CompanySystem.leaveCompany(player)
 	end
 	return true
 end
-
-
-SystemManager.registerSystem(CompanySystem)
 
 
 ---@require_folder systems/company

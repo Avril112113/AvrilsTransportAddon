@@ -4,19 +4,18 @@
 SaveSystem = {name="SaveSystem"}
 
 
-function SaveSystem.onDestroy()
-	if SaveSystem.markedForReset then
-		g_savedata = {}
-		log_warn("Reset savedata due to being marked to do so.")
+SystemManager.addEventHandler(SaveSystem, "onDestroy", 100,
+	function()
+		if SaveSystem.markedForReset then
+			g_savedata = {}
+			log_warn("Reset savedata due to being marked to do so.")
+		end
 	end
-end
+)
 
 function SaveSystem.markForReset()
 	SaveSystem.markedForReset = true
 end
-
-
-SystemManager.registerSystem(SaveSystem)
 
 
 Command.new("savedata")

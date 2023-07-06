@@ -4,7 +4,7 @@
 ]]
 
 
-PlayerManager = {name="PlayerManager"}
+PlayerManager = {}
 PlayerManager.playersBySteamId = {}
 PlayerManager.playersByPeerId = {}
 PlayerManager.playersByName = {}
@@ -79,89 +79,90 @@ function PlayerManager.getAllPlayersDistance(transform, maxRadius)
 end
 
 
----@param is_world_create boolean Only returns true when the world is first created.
-function PlayerManager.onCreate(is_world_create)
+EventManager.addEventHandler("onCreate", 1, function(is_world_create)
 	for _, swplayer in pairs(server.getPlayers()) do
 		PlayerManager.setPlayer(swplayer.id, swplayer.steam_id, swplayer.name, swplayer.admin, swplayer.auth)
 	end
-end
+end)
 
----@param steam_id integer The player's Steam ID (convert to string as soon as possible to prevent loss of data)
----@param name string The player's name
----@param peer_id integer The player's peer ID
----@param is_admin boolean If the player has admin
----@param is_auth boolean If the player is authenticated
-function PlayerManager.onPlayerJoinRaw(steam_id, name, peer_id, is_admin, is_auth)
-	log_info("Player ", name, " joined the server.")
+EventManager.addEventHandler("onPlayerJoin", 1, function(steam_id, name, peer_id, is_admin, is_auth)
+	log_info(("Player '%s' joined the server."):format(name))
 	PlayerManager.setPlayer(peer_id, steam_id, name, is_admin, is_auth)
-end
 
----@param steam_id number The player's Steam ID (convert to string as soon as possible to prevent loss of data)
----@param name string The player's name
----@param peer_id number The player's peer ID
----@param is_admin boolean If the player has admin
----@param is_auth boolean If the player is authenticated
-function PlayerManager.onPlayerLeaveRaw(steam_id, name, peer_id, is_admin, is_auth)
-	log_info("Player ", name, " left the server.")
+	local player = PlayerManager.playersByPeerId[peer_id]
+	return "transform", {player}
+end)
+EventManager.addEventHandler("onPlayerLeave", 1, function(steam_id, name, peer_id, is_admin, is_auth)
+	log_info(("Player '%s' left the server."):format(name))
 	PlayerManager.unsetPlayer(PlayerManager.playersByPeerId[peer_id])
-end
 
-
-SystemManager.setEventTransformer("onCustomCommand", function(full_message, peer_id, is_admin, is_auth, command, ...)
 	local player = PlayerManager.playersByPeerId[peer_id]
-	return full_message, player, command, ...
-end)
-SystemManager.setEventTransformer("onChatMessage", function(peer_id, sender_name, message)
-	local player = PlayerManager.playersByPeerId[peer_id]
-	return player, sender_name, message
+	return "transform", {player}
 end)
 
-SystemManager.setEventTransformer("onPlayerJoin", function(steam_id, name, peer_id, is_admin, is_auth)
+EventManager.addEventHandler("onCustomCommand", 1, function(full_message, peer_id, is_admin, is_auth, command, ...)
 	local player = PlayerManager.playersByPeerId[peer_id]
-	return player
+	return "transform", {full_message, player, command, ...}
 end)
-SystemManager.setEventTransformer("onPlayerLeave", function(steam_id, name, peer_id, is_admin, is_auth)
+EventManager.addEventHandler("onChatMessage", 1, function(peer_id, sender_name, message)
 	local player = PlayerManager.playersByPeerId[peer_id]
-	return player
-end)
-SystemManager.setEventTransformer("onPlayerSit", function(peer_id, vehicle_id, seat_name)
-	local player = PlayerManager.playersByPeerId[peer_id]
-	return player, vehicle_id, seat_name
-end)
-SystemManager.setEventTransformer("onPlayerUnsit", function(peer_id, vehicle_id, seat_name)
-	local player = PlayerManager.playersByPeerId[peer_id]
-	return player, vehicle_id, seat_name
-end)
-SystemManager.setEventTransformer("onPlayerRespawn", function(peer_id)
-	local player = PlayerManager.playersByPeerId[peer_id]
-	return player
-end)
-SystemManager.setEventTransformer("onToggleMap", function(peer_id, is_open)
-	local player = PlayerManager.playersByPeerId[peer_id]
-	return player, is_open
-end)
-SystemManager.setEventTransformer("onPlayerDie", function(steam_id, name, peer_id, is_admin, is_auth)
-	local player = PlayerManager.playersByPeerId[peer_id]
-	return player
+	return "transform", {player, sender_name, message}
 end)
 
-SystemManager.setEventTransformer("onVehicleSpawn", function(vehicle_id, peer_id, x, y, z, cost)
+EventManager.addEventHandler("onPlayerSit", 1, function(peer_id, vehicle_id, seat_name)
 	local player = PlayerManager.playersByPeerId[peer_id]
-	return vehicle_id, player, x, y, z, cost
+	return "transform", {player, vehicle_id, seat_name}
 end)
-SystemManager.setEventTransformer("onVehicleDespawn", function(vehicle_id, peer_id)
+EventManager.addEventHandler("onPlayerUnsit", 1, function(peer_id, vehicle_id, seat_name)
 	local player = PlayerManager.playersByPeerId[peer_id]
-	return vehicle_id, player
+	return "transform", {player, vehicle_id, seat_name}
 end)
-SystemManager.setEventTransformer("onVehicleTeleport", function(vehicle_id, peer_id, x, y, z)
+EventManager.addEventHandler("onPlayerDie", 1, function(steam_id, name, peer_id, is_admin, is_auth)
 	local player = PlayerManager.playersByPeerId[peer_id]
-	return vehicle_id, player, x, y, z
+	return "transform", {player}
+end)
+EventManager.addEventHandler("onPlayerRespawn", 1, function(peer_id)
+	local player = PlayerManager.playersByPeerId[peer_id]
+	return "transform", {player}
+end)
+EventManager.addEventHandler("onToggleMap", 1, function(peer_id, is_open)
+	local player = PlayerManager.playersByPeerId[peer_id]
+	return "transform", {player, is_open}
 end)
 
-SystemManager.setEventTransformer("onButtonPress", function(vehicle_id, peer_id, button_name)
+EventManager.addEventHandler("onVehicleSpawn", 1, function(vehicle_id, peer_id, x, y, z, cost)
 	local player = PlayerManager.playersByPeerId[peer_id]
-	return vehicle_id, player, button_name
+	return "transform", {vehicle_id, player, x, y, z, cost}
+end)
+EventManager.addEventHandler("onVehicleDespawn", 1, function(vehicle_id, peer_id)
+	local player = PlayerManager.playersByPeerId[peer_id]
+	return "transform", {vehicle_id, player}
+end)
+EventManager.addEventHandler("onVehicleTeleport", 1, function(vehicle_id, peer_id, x, y, z)
+	local player = PlayerManager.playersByPeerId[peer_id]
+	return "transform", {vehicle_id, player, x, y, z}
+end)
+EventManager.addEventHandler("onButtonPress", 1, function(vehicle_id, peer_id, button_name)
+	local player = PlayerManager.playersByPeerId[peer_id]
+	return "transform", {vehicle_id, player, button_name}
 end)
 
 
-SystemManager.registerSystem(PlayerManager)
+-- Not typing EventManager.addEventHandler, as LuaLS is combining argument types for handlers :/
+-- SystemManager.addEventHandler will be typed with the transformed arguments instead.
+-- if false then
+-- 	---@overload fun(eventName:"onCustomCommand", priority:integer, handler:(fun(full_message:string, player:Player, command:string, ...:string):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onChatMessage", priority:integer, handler:(fun(player:Player, sender_name:string, message:string):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onPlayerJoin", priority:integer, handler:(fun(player:Player):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onPlayerLeave", priority:integer, handler:(fun(player:Player):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onPlayerSit", priority:integer, handler:(fun(player:Player, vehicle_id:integer, seat_name:string):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onPlayerUnsit", priority:integer, handler:(fun(player:Player, vehicle_id:integer, seat_name:string):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onPlayerDie", priority:integer, handler:(fun(player:Player):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onPlayerRespawn", priority:integer, handler:(fun(player:Player):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onToggleMap", priority:integer, handler:(fun(player:Player, is_open:boolean):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onVehicleSpawn", priority:integer, handler:(fun(vehicle_id:integer, player:Player, x:number, y:number, z:number, cost:number):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onVehicleDespawn", priority:integer, handler:(fun(vehicle_id:integer, player:Player):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onVehicleTeleport", priority:integer, handler:(fun(vehicle_id:integer, player:Player, x:number, y:number):EventHandlerResult, any[]?))
+-- 	---@overload fun(eventName:"onButtonPress", priority:integer, handler:(fun(vehicle_id:integer, player:Player, button_name:string):EventHandlerResult, any[]?))
+-- 	EventManager.addEventHandler = EventManager.addEventHandler
+-- end

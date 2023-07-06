@@ -13,6 +13,8 @@ g_savedata = {}
 require("binnet")
 
 
+require("managers.event_manager")
+
 require("managers.system_manager")
 require("managers.command_manager")
 require("managers.player_manager")

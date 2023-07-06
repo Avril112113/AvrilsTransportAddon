@@ -38,6 +38,7 @@
         "debug": "enable",
         "basic": "enable"
     },
+    "Lua.diagnostics.ignoredFiles": "Disable",
     "Lua.workspace.ignoreDir": [
         ".vscode",
         "/_build/",

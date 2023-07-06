@@ -191,7 +191,7 @@ function Command:checkPermission(player)
 end
 
 --- Adds this command to the global commands list.
---- *Don't call for subcommands
+--- Don't call on subcommands
 function Command:register()
 	CommandManager.commands[self.name] = self
 	return self
@@ -203,88 +203,82 @@ function CommandManager.getCommand(name)
 	return CommandManager.commands[name]
 end
 
-
----@param full_message string The full message that was sent
----@param player Player
----@param command string The command the player sent (ex: player entered "?help me", command will be "?help")
----@param ... string The rest of the args of the command, can be packed into a table with "arg = table.pack(...)" and referenced with "arg[1]", "arg[2]", ect
-function CommandManager.onCustomCommand(full_message, player, command, ...)
-	local cmd = CommandManager.commands[command:sub(2)]
-	if cmd == nil then
-		return
-	end
-
-	local commandPathTbl = {command}
-	local args = {...}
-	while true do
-		local subCmd = cmd.subcommands[args[1]]
-		if subCmd ~= nil then
-			table.insert(commandPathTbl, table.remove(args, 1))
-			cmd = subCmd
-			if subCmd:checkPermission(player) ~= true then
-				break
-			end
-		else
-			break
+EventManager.addEventHandler("onCustomCommand", 10,
+	function(full_message, player, command, ...)
+		local cmd = CommandManager.commands[command:sub(2)]
+		if cmd == nil then
+			return
 		end
-	end
-	local commandPath = table.concat(commandPathTbl, " ")
 
-	if cmd:checkPermission(player) ~= true then
-		log_cmdResponse(commandPath, player.peer_id, ("Insufficient permission to run this command, you need %s."):format(cmd.permission))
-		return
-	end
-
-	if cmd.handler == nil then
-		local subCmds = {}
-		for name, _ in pairs(cmd.subcommands) do
-			table.insert(subCmds, name)
-		end
-		if #subCmds <= 0 then
-			table.insert(subCmds, "ERR_EMPTY_COMMAND")
-		end
-		log_cmdResponse(commandPath, player.peer_id, "Command can not be invoked directly.\nUse one of the subcommands: ", table.concat(subCmds, ", "))
-		return
-	end
-	if #args == 1 and args[1] == "help" then
-		local status, msg = Command.__helpHandler(cmd, {player=player, command=commandPath})
-		log_cmdResponse(commandPath, player.peer_id, msg)
-		return
-	end
-	if cmd.handlerSignature ~= nil then
-		local rawArgs = args
-		args = {}
-		for i, argSig in ipairs(cmd.handlerSignature) do
-			if #rawArgs <= 0 then
-				if argSig.optional then
-					goto continue
-				else
-					log_cmdResponse(commandPath, player.peer_id, ("Missing argument '%s'\n%s"):format(argSig.name, ("%s %s"):format(commandPath, cmd.handlerUsage)))
-					return
-				end
-			end
-			local converter = CommandManager.argConverters[argSig.type]
-			if converter ~= nil and converter ~= true then
-				local ok, valueOrMsg = converter(rawArgs)
-				if ok then
-					table.insert(args, valueOrMsg)
-				else
-					log_cmdResponse(commandPath, player.peer_id, ("Argument #%.0f: %s"):format(i, valueOrMsg))
-					return
+		local commandPathTbl = {command}
+		local args = {...}
+		while true do
+			local subCmd = cmd.subcommands[args[1]]
+			if subCmd ~= nil then
+				table.insert(commandPathTbl, table.remove(args, 1))
+				cmd = subCmd
+				if subCmd:checkPermission(player) ~= true then
+					break
 				end
 			else
-				table.insert(args, table.remove(rawArgs, 1))
+				break
 			end
-		    ::continue::
+		end
+		local commandPath = table.concat(commandPathTbl, " ")
+
+		if cmd:checkPermission(player) ~= true then
+			log_cmdResponse(commandPath, player.peer_id, ("Insufficient permission to run this command, you need %s."):format(cmd.permission))
+			return
+		end
+
+		if cmd.handler == nil then
+			local subCmds = {}
+			for name, _ in pairs(cmd.subcommands) do
+				table.insert(subCmds, name)
+			end
+			if #subCmds <= 0 then
+				table.insert(subCmds, "ERR_EMPTY_COMMAND")
+			end
+			log_cmdResponse(commandPath, player.peer_id, "Command can not be invoked directly.\nUse one of the subcommands: ", table.concat(subCmds, ", "))
+			return
+		end
+		if #args == 1 and args[1] == "help" then
+			local status, msg = Command.__helpHandler(cmd, {player=player, command=commandPath})
+			log_cmdResponse(commandPath, player.peer_id, msg)
+			return
+		end
+		if cmd.handlerSignature ~= nil then
+			local rawArgs = args
+			args = {}
+			for i, argSig in ipairs(cmd.handlerSignature) do
+				if #rawArgs <= 0 then
+					if argSig.optional then
+						goto continue
+					else
+						log_cmdResponse(commandPath, player.peer_id, ("Missing argument '%s'\n%s"):format(argSig.name, ("%s %s"):format(commandPath, cmd.handlerUsage)))
+						return
+					end
+				end
+				local converter = CommandManager.argConverters[argSig.type]
+				if converter ~= nil and converter ~= true then
+					local ok, valueOrMsg = converter(rawArgs)
+					if ok then
+						table.insert(args, valueOrMsg)
+					else
+						log_cmdResponse(commandPath, player.peer_id, ("Argument #%.0f: %s"):format(i, valueOrMsg))
+						return
+					end
+				else
+					table.insert(args, table.remove(rawArgs, 1))
+				end
+				::continue::
+			end
+		end
+		local status, msg = cmd:handler({player=player, command=commandPath}, table.unpack(args))
+		if msg ~= nil then
+			log_cmdResponse(commandPath, player.peer_id, msg)
+		else
+			log_cmdResponse(commandPath, player.peer_id, ("Command status: %s"):format(status))
 		end
 	end
-	local status, msg = cmd:handler({player=player, command=commandPath}, table.unpack(args))
-	if msg ~= nil then
-		log_cmdResponse(commandPath, player.peer_id, msg)
-	else
-		log_cmdResponse(commandPath, player.peer_id, ("Command status: %s"):format(status))
-	end
-end
-
-
-SystemManager.registerSystem(CommandManager)
+)

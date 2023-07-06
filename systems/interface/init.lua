@@ -21,66 +21,66 @@ InterfaceSystem.vehicleDevMode = true
 InterfaceSystem.loadedInterfaces = {}
 
 
----@param is_world_create boolean Only returns true when the world is first created.
-function InterfaceSystem.onCreate(is_world_create)
-	InterfaceSystem.data = SystemManager.getSaveData(InterfaceSystem)
-
-	if InterfaceSystem.data.interfaceVehicles == nil then
-		---@type table<integer, string>
-		InterfaceSystem.data.interfaceVehicles = {}
-	end
-
-	if not is_world_create then
-		for vehicleId, locationName in pairs(InterfaceSystem.data.interfaceVehicles) do
-			if InterfaceSystem.loadedInterfaces[vehicleId] == nil and server.getVehicleSimulating(vehicleId) then
-				InterfaceSystem.loadedInterfaces[vehicleId] = {cooldown=30}
+SystemManager.addEventHandler(InterfaceSystem, "onCreate", 100,
+	function(is_world_create)
+		InterfaceSystem.data = SystemManager.getSaveData(InterfaceSystem)
+	
+		if InterfaceSystem.data.interfaceVehicles == nil then
+			---@type table<integer, string>
+			InterfaceSystem.data.interfaceVehicles = {}
+		end
+	
+		if not is_world_create then
+			for vehicleId, locationName in pairs(InterfaceSystem.data.interfaceVehicles) do
+				if InterfaceSystem.loadedInterfaces[vehicleId] == nil and server.getVehicleSimulating(vehicleId) then
+					InterfaceSystem.loadedInterfaces[vehicleId] = {cooldown=30}
+				end
 			end
 		end
 	end
-end
+)
 
 local tick = 0
----@param game_ticks number the number of ticks since the last onTick call (normally 1, while sleeping 400.)
-function InterfaceSystem.onTick(game_ticks)
-	tick = tick + 1
+SystemManager.addEventHandler(InterfaceSystem, "onTick", 100,
+	function(game_ticks)
+		tick = tick + 1
 
-	for vehicle_id, interface in pairs(InterfaceSystem.loadedInterfaces) do
-		InterfaceSystem.updateVehicle(vehicle_id, interface)
+		for vehicle_id, interface in pairs(InterfaceSystem.loadedInterfaces) do
+			InterfaceSystem.updateVehicle(vehicle_id, interface)
+		end
 	end
-end
+)
 
----@param vehicle_id number The vehicle ID of the vehicle that was spawned.
-function InterfaceSystem.onVehicleLoad(vehicle_id)
-	if InterfaceSystem.data.interfaceVehicles[vehicle_id] then
-		InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+SystemManager.addEventHandler(InterfaceSystem, "onVehicleLoad", 100,
+	function(vehicle_id)
+		if InterfaceSystem.data.interfaceVehicles[vehicle_id] then
+			InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+		end
 	end
-end
+)
 
----@param vehicle_id number The vehicle ID of the vehicle that was spawned.
-function InterfaceSystem.onVehicleUnload(vehicle_id)
-	InterfaceSystem.loadedInterfaces[vehicle_id] = nil
-end
-
----@param vehicle_id number The vehicle ID of the vehicle that was spawned.
----@param player Player?
---- @param x number The x coordinate of the vehicle's spawn location relative to world space.
---- @param y number The y coordinate of the vehicle's spawn location relative to world space.
---- @param z number The z coordinate of the vehicle's spawn location relative to world space.
---- @param cost number The cost of the vehicle. Only calculated for player spawned vehicles.
-function InterfaceSystem.onVehicleSpawn(vehicle_id, player, x, y, z, cost)
-	if InterfaceSystem.vehicleDevMode and player ~= nil then
-		local locationConfig = LocationSystem.getClosestLocation(server.getPlayerPos(player.peer_id))
-		InterfaceSystem.data.interfaceVehicles[vehicle_id] = locationConfig.name
-		InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+SystemManager.addEventHandler(InterfaceSystem, "onVehicleUnload", 100,
+	function(vehicle_id)
+		InterfaceSystem.loadedInterfaces[vehicle_id] = nil
 	end
-end
+)
 
----@param vehicle_id number The vehicle ID of the vehicle that was spawned.
----@param player Player?
-function InterfaceSystem.onVehicleDespawn(vehicle_id, player)
-	InterfaceSystem.loadedInterfaces[vehicle_id] = nil
-	InterfaceSystem.data.interfaceVehicles[vehicle_id] = nil
-end
+SystemManager.addEventHandler(InterfaceSystem, "onVehicleSpawn", 100,
+	function(vehicle_id, player, x, y, z, cost)
+		if InterfaceSystem.vehicleDevMode and player ~= nil then
+			local locationConfig = LocationSystem.getClosestLocation(server.getPlayerPos(player.peer_id))
+			InterfaceSystem.data.interfaceVehicles[vehicle_id] = locationConfig.name
+			InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+		end
+	end
+)
+
+SystemManager.addEventHandler(InterfaceSystem, "onVehicleDespawn", 100,
+	function(vehicle_id, player)
+		InterfaceSystem.loadedInterfaces[vehicle_id] = nil
+		InterfaceSystem.data.interfaceVehicles[vehicle_id] = nil
+	end
+)
 
 
 ---@param transform SWMatrix
@@ -174,9 +174,6 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 		server.setVehicleKeypad(vehicle_id, "I"..i, writeValues[i] or 0)
 	end
 end
-
-
-SystemManager.registerSystem(InterfaceSystem)
 
 ---@require_folder systems/interface
 require("systems.interface.commands")
