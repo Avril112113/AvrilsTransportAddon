@@ -9,7 +9,7 @@ InterfaceSystem.BinnetPackets = BinnetPackets
 
 
 ---@param binnet BinnetBase
-BinnetPackets.UPDATE_INTERFACE = BinnetBase:registerPacketWriter(function(binnet, writer)
+BinnetPackets.UPDATE_INTERFACE = BinnetBase:registerPacketWriter(0, function(binnet, writer)
 	-- local interface = InterfaceSystem.loadedInterfaces[binnet.vehicleId]
 	local locationName = InterfaceSystem.data.interfaceVehicles[binnet.vehicleId]
 	if locationName == nil then
@@ -19,7 +19,7 @@ BinnetPackets.UPDATE_INTERFACE = BinnetBase:registerPacketWriter(function(binnet
 	writer:writeString(locationName)
 end)
 ---@param binnet BinnetBase
-BinnetPackets.UPDATE_COMPANY = BinnetBase:registerPacketWriter(function(binnet, writer)
+BinnetPackets.UPDATE_COMPANY = BinnetBase:registerPacketWriter(1, function(binnet, writer)
 	local interface = InterfaceSystem.loadedInterfaces[binnet.vehicleId]
 	if interface.company == nil then
 		return
