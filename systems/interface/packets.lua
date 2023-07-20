@@ -11,12 +11,12 @@ InterfaceSystem.BinnetPackets = BinnetPackets
 ---@param binnet BinnetBase
 BinnetPackets.UPDATE_INTERFACE = BinnetBase:registerPacketWriter(0, function(binnet, writer)
 	-- local interface = InterfaceSystem.loadedInterfaces[binnet.vehicleId]
-	local locationName = InterfaceSystem.data.interfaceVehicles[binnet.vehicleId]
-	if locationName == nil then
-		log_error("Attempt to update interface, but has invalid location:", locationName)
+	local interfaceVehicleInfo = InterfaceSystem.data.interfaceVehicles[binnet.vehicleId]
+	if interfaceVehicleInfo == nil then
+		log_error("Binnet: Attempt to update invalid interface:", binnet.vehicleId)
 		return
 	end
-	writer:writeString(locationName)
+	writer:writeString(interfaceVehicleInfo.location)
 end)
 ---@param binnet BinnetBase
 BinnetPackets.UPDATE_COMPANY = BinnetBase:registerPacketWriter(1, function(binnet, writer)

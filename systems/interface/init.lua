@@ -1,9 +1,21 @@
-local BINNET_READ_COUNT = 3
-local BINNET_WRITE_COUNT = 9
-
-local INTERFACE_VEHICLE_LOCATION_NAME = "vehicle_interface"
-local INTERFACE_VEHICLE_SPAWN_OFFSET = matrix.translation(0, -1.25, 0)
-local INTERFACE_VEHICLE_RANGE = 15
+---@alias InterfaceType "general"|"pump"|"mineral"
+local INTERFACE_VEHICLES = {
+	general={
+		vehicleName="vehicle_interface",
+		offset=matrix.translation(0, -1.25, 0),
+		range=15,
+		binnetReadChannels=3,
+		binnetWriteChannels=9,
+	},
+	pump={
+		vehicleName="vehicle_pump",
+		offset=matrix.translation(0, -0.5, 0),
+		range=15,
+		binnetReadChannels=3,
+		binnetWriteChannels=3,
+	},
+	-- TODO: mineral
+}
 
 
 ---@class InterfaceSystem : System
@@ -24,14 +36,14 @@ InterfaceSystem.loadedInterfaces = {}
 SystemManager.addEventHandler(InterfaceSystem, "onCreate", 100,
 	function(is_world_create)
 		InterfaceSystem.data = SystemManager.getSaveData(InterfaceSystem)
-	
+
 		if InterfaceSystem.data.interfaceVehicles == nil then
-			---@type table<integer, string>
+			---@type table<integer, {type:InterfaceType,location:string}>
 			InterfaceSystem.data.interfaceVehicles = {}
 		end
-	
+
 		if not is_world_create then
-			for vehicleId, locationName in pairs(InterfaceSystem.data.interfaceVehicles) do
+			for vehicleId, _ in pairs(InterfaceSystem.data.interfaceVehicles) do
 				if InterfaceSystem.loadedInterfaces[vehicleId] == nil and server.getVehicleSimulating(vehicleId) then
 					InterfaceSystem.loadedInterfaces[vehicleId] = {cooldown=30}
 				end
@@ -69,8 +81,18 @@ SystemManager.addEventHandler(InterfaceSystem, "onVehicleSpawn", 100,
 	function(vehicle_id, player, x, y, z, cost)
 		if InterfaceSystem.vehicleDevMode and player ~= nil then
 			local locationConfig = LocationSystem.getClosestLocation(server.getPlayerPos(player.peer_id))
-			InterfaceSystem.data.interfaceVehicles[vehicle_id] = locationConfig.name
-			InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+			local filename = server.getVehicleData(vehicle_id).filename:lower()
+			for interfaceType, interfaceTypeData in pairs(INTERFACE_VEHICLES) do
+				if filename:find(interfaceType) then
+					InterfaceSystem.data.interfaceVehicles[vehicle_id] = {
+						type=interfaceType,
+						location=locationConfig.name,
+					}
+					InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+					log_info(("Player spawned interface vehicle is of type %s at %s"):format(interfaceType, locationConfig.name))
+					return
+				end
+			end
 		end
 	end
 )
@@ -85,20 +107,29 @@ SystemManager.addEventHandler(InterfaceSystem, "onVehicleDespawn", 100,
 
 ---@param transform SWMatrix
 ---@param locationConfig LocationConfig
-function InterfaceSystem.createInterfaceVehicle(transform, locationConfig)
-	transform = matrix.multiply(transform, INTERFACE_VEHICLE_SPAWN_OFFSET)
-	local vehicleId = VehicleManager.spawnStaticVehicle(InterfaceSystem, INTERFACE_VEHICLE_LOCATION_NAME, transform)
-	InterfaceSystem.data.interfaceVehicles[vehicleId] = locationConfig.name
+---@param interfaceType InterfaceType
+function InterfaceSystem.createInterfaceVehicle(transform, locationConfig, interfaceType)
+	local interfaceTypeData = INTERFACE_VEHICLES[interfaceType]
+	if interfaceTypeData == nil then
+		log_error(("Invalid interface type '%s' at location %s"):format(interfaceType, locationConfig.name))
+		return nil
+	end
+	transform = matrix.multiply(transform, interfaceTypeData.offset)
+	local vehicleId = VehicleManager.spawnStaticVehicle(InterfaceSystem, interfaceTypeData.vehicleName, transform)
+	InterfaceSystem.data.interfaceVehicles[vehicleId] = {
+		type=interfaceType,
+		location=locationConfig.name,
+	}
 	return vehicleId
 end
 
 ---@param vehicleId integer
 function InterfaceSystem.respawnInterfaceVehicle(vehicleId)
-	local locationName = InterfaceSystem.data.interfaceVehicles[vehicleId]
+	local interfaceVehicleInfo = InterfaceSystem.data.interfaceVehicles[vehicleId]
 	local newVehicleId, err = VehicleManager.respawnStaticVehicle(vehicleId)
 	if newVehicleId then
 		InterfaceSystem.data.interfaceVehicles[vehicleId] = nil
-		InterfaceSystem.data.interfaceVehicles[newVehicleId] = locationName
+		InterfaceSystem.data.interfaceVehicles[newVehicleId] = interfaceVehicleInfo
 	end
 	return newVehicleId, err
 end
@@ -129,6 +160,9 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 		end
 	end
 
+	local interfaceVehicleInfo = InterfaceSystem.data.interfaceVehicles[vehicle_id]
+	local interfaceTypeData = INTERFACE_VEHICLES[interfaceVehicleInfo.type]
+
 	local doSetup = false
 	if not interface.enabled and interface.cooldown == nil then
 		interface.binnet = InterfaceSystem.BinnetBase:new()
@@ -140,7 +174,7 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 	local binnet = interface.binnet
 
 	local readValues = {}
-	for i=1,BINNET_READ_COUNT do
+	for i=1,interfaceTypeData.binnetReadChannels do
 		local dial, ok = server.getVehicleDial(vehicle_id, "O"..i)
 		if not ok then
 			return -1
@@ -153,7 +187,7 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 	if doSetup or tick % 10 == 0 then
 		interface.companyUpdate = true
 		local vehiclePos = server.getVehiclePos(vehicle_id, 0, 0, 0)
-		local players = PlayerManager.getAllPlayersDistance(vehiclePos, INTERFACE_VEHICLE_RANGE)
+		local players = PlayerManager.getAllPlayersDistance(vehiclePos, interfaceTypeData.range)
 		if #players > 0 then
 			local companyName = CompanySystem.getPlayerCompanyName(players[1].player)
 			if interface.company ~= companyName then
@@ -169,8 +203,8 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 		binnet:send(InterfaceSystem.BinnetPackets.UPDATE_COMPANY)
 	end
 
-	local writeValues = binnet:write(BINNET_WRITE_COUNT)
-	for i=1,BINNET_WRITE_COUNT do
+	local writeValues = binnet:write(interfaceTypeData.binnetWriteChannels)
+	for i=1,interfaceTypeData.binnetWriteChannels do
 		server.setVehicleKeypad(vehicle_id, "I"..i, writeValues[i] or 0)
 	end
 end

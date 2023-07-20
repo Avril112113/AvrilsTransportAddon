@@ -62,6 +62,8 @@ function LocationConfig:processZones()
 	---@type LocationConfigZone[]
 	self.interfaces = {}
 	---@type LocationConfigZone[]
+	self.mineralStations = {}  -- Includes any type of mineral loading/unloading area!
+	---@type LocationConfigZone[]
 	self.containerAreas = {}
 	for _, zone in pairs(zones) do
 		local tags = {}
@@ -76,6 +78,8 @@ function LocationConfig:processZones()
 			self.position.z = self.position.z + zone.transform[15]
 		elseif tags.interface then
 			table.insert(self.interfaces, {name=zone.name, transform=zone.transform, size=zone.size, tags=tags})
+		elseif tags.mineral then
+			table.insert(self.mineralStations, {name=zone.name, transform=zone.transform, size=zone.size, tags=tags})
 		elseif tags.container then
 			table.insert(self.containerAreas, {name=zone.name, transform=zone.transform, size=zone.size, tags=tags})
 		end
@@ -98,6 +102,8 @@ end
 
 function LocationConfig:createInterfaces()
 	for _, interfaceZone in pairs(self.interfaces) do
-		InterfaceSystem.createInterfaceVehicle(interfaceZone.transform, self)
+		local interfaceType = interfaceZone.tags.interface_type
+		---@cast interfaceType InterfaceType
+		InterfaceSystem.createInterfaceVehicle(interfaceZone.transform, self, interfaceType)
 	end
 end
