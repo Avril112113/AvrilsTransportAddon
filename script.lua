@@ -15,6 +15,7 @@ require("binnet")
 
 require("managers.event_manager")
 
+require("managers.version_manager")
 require("managers.system_manager")
 require("managers.command_manager")
 require("managers.player_manager")
@@ -25,6 +26,5 @@ require("systems.company")
 require("systems.interface")
 require("systems.location")
 require("systems.test")
-require("systems.version")
 require("systems.z_save")
 ---@require_folder_finish
