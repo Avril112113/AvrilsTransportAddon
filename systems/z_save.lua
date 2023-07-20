@@ -4,7 +4,7 @@
 SaveSystem = {name="SaveSystem"}
 
 
-SystemManager.addEventHandler(SaveSystem, "onDestroy", 100,
+SystemManager.addEventHandler(SaveSystem, "onDestroy", 500,
 	function()
 		if SaveSystem.markedForReset then
 			g_savedata = {}

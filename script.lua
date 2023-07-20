@@ -25,5 +25,6 @@ require("systems.company")
 require("systems.interface")
 require("systems.location")
 require("systems.test")
+require("systems.version")
 require("systems.z_save")
 ---@require_folder_finish
