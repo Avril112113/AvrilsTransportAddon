@@ -11,7 +11,8 @@
 ---@field binnetReadChannels integer
 ---@field binnetWriteChannels integer
 ---@field binnetBase Binnet
----@field update fun(self, doSetup:boolean, tick:integer, binnet:Binnet, )
+---@field setup nil|fun(self, vehicleId:integer, interface:LoadedInterface)
+---@field update nil|fun(self, vehicleId:integer, interface:LoadedInterface)
 
 
 ---@type InterfaceVariant
@@ -22,8 +23,6 @@ InterfaceSystem.interfaceVariants.general = {
 	binnetReadChannels=3,
 	binnetWriteChannels=9,
 	binnetBase=InterfaceSystem.BinnetBase:new(),
-	update=function(self, doSetup, tick, binnet)
-	end
 }
 
 ---@type InterfaceVariant
@@ -34,7 +33,5 @@ InterfaceSystem.interfaceVariants.pump = {
 	binnetReadChannels=3,
 	binnetWriteChannels=3,
 	binnetBase=InterfaceSystem.BinnetBase:new(),
-	update=function(self, doSetup, tick, binnet)
-	end
 }
 

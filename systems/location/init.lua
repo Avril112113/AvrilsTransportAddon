@@ -72,13 +72,11 @@ SystemManager.addEventHandler(LocationSystem, "onDestroy", 100,
 	end
 )
 
-local tick = 0
 SystemManager.addEventHandler(LocationSystem, "onTick", 100,
 	function(game_ticks)
-		tick = tick + 1
 		local pendingUpdateTicks = LocationSystem.data.pendingUpdateTicks or 0
 		pendingUpdateTicks = pendingUpdateTicks + game_ticks
-		if tick % RESOURCE_UPDATE_RATE == 0 then
+		if TickManager.sessionTick % RESOURCE_UPDATE_RATE == 0 then
 			LocationSystem.updateProduction(pendingUpdateTicks)
 			pendingUpdateTicks = 0
 		end

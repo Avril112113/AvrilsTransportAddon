@@ -18,6 +18,7 @@ require("managers.event_manager")
 
 require("managers.version_manager")
 require("managers.system_manager")
+require("managers.tick_manager")
 require("managers.command_manager")
 require("managers.player_manager")
 require("managers.vehicle_manager")

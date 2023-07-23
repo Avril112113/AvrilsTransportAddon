@@ -37,11 +37,8 @@ SystemManager.addEventHandler(InterfaceSystem, "onCreate", 100,
 	end
 )
 
-local tick = 0
 SystemManager.addEventHandler(InterfaceSystem, "onTick", 100,
 	function(game_ticks)
-		tick = tick + 1
-
 		for vehicle_id, interface in pairs(InterfaceSystem.loadedInterfaces) do
 			InterfaceSystem.updateVehicle(vehicle_id, interface)
 		end
@@ -169,7 +166,7 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 	binnet:process(readValues)
 
 	interface.companyUpdate = nil
-	if doSetup or tick % 10 == 0 then
+	if doSetup or TickManager.sessionTick % 10 == 0 then
 		interface.companyUpdate = true
 		local vehiclePos = server.getVehiclePos(vehicle_id, 0, 0, 0)
 		local players = PlayerManager.getAllPlayersDistance(vehiclePos, interfaceVariant.range)
@@ -188,7 +185,12 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 		binnet:send(InterfaceSystem.BinnetPackets.UPDATE_COMPANY)
 	end
 
-	interfaceVariant:update(doSetup, tick, binnet)
+	if doSetup and interfaceVariant.setup then
+		interfaceVariant:setup(vehicle_id, interface)
+	end
+	if interfaceVariant.update then
+		interfaceVariant:update(vehicle_id, interface)
+	end
 
 	local writeValues = binnet:write(interfaceVariant.binnetWriteChannels)
 	for i=1,interfaceVariant.binnetWriteChannels do
