@@ -103,7 +103,7 @@ end
 function LocationConfig:createInterfaces()
 	for _, interfaceZone in pairs(self.interfaces) do
 		local interfaceType = interfaceZone.tags.interface_type
-		---@cast interfaceType InterfaceType
+		---@cast interfaceType InterfaceVariantName
 		InterfaceSystem.createInterfaceVehicle(interfaceZone.transform, self, interfaceType)
 	end
 end

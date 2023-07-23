@@ -1,26 +1,11 @@
----@alias InterfaceType "general"|"pump"|"mineral"
-local INTERFACE_VEHICLES = {
-	general={
-		vehicleName="vehicle_interface",
-		offset=matrix.translation(0, -1.25, 0),
-		range=15,
-		binnetReadChannels=3,
-		binnetWriteChannels=9,
-	},
-	pump={
-		vehicleName="vehicle_pump",
-		offset=matrix.translation(0, -0.5, 0),
-		range=15,
-		binnetReadChannels=3,
-		binnetWriteChannels=3,
-	},
-	-- TODO: mineral
-}
 
 
 ---@class InterfaceSystem : System
 InterfaceSystem = {name="InterfaceSystem"}
 InterfaceSystem.vehicleDevMode = true
+
+---@type table<InterfaceVariantName, InterfaceVariant>
+InterfaceSystem.interfaceVariants = {}
 
 
 ---@class LoadedInterface
@@ -38,7 +23,7 @@ SystemManager.addEventHandler(InterfaceSystem, "onCreate", 100,
 		InterfaceSystem.data = SystemManager.getSaveData(InterfaceSystem)
 
 		if InterfaceSystem.data.interfaceVehicles == nil then
-			---@type table<integer, {type:InterfaceType,location:string}>
+			---@type table<integer, {type:InterfaceVariantName,location:string}>
 			InterfaceSystem.data.interfaceVehicles = {}
 		end
 
@@ -82,14 +67,14 @@ SystemManager.addEventHandler(InterfaceSystem, "onVehicleSpawn", 100,
 		if InterfaceSystem.vehicleDevMode and player ~= nil then
 			local locationConfig = LocationSystem.getClosestLocation(server.getPlayerPos(player.peer_id))
 			local filename = server.getVehicleData(vehicle_id).filename:lower()
-			for interfaceType, interfaceTypeData in pairs(INTERFACE_VEHICLES) do
-				if filename:find(interfaceType) then
+			for interfaceVariantName, interfaceVariant in pairs(InterfaceSystem.interfaceVariants) do
+				if filename:find(interfaceVariantName) then
 					InterfaceSystem.data.interfaceVehicles[vehicle_id] = {
-						type=interfaceType,
+						type=interfaceVariantName,
 						location=locationConfig.name,
 					}
 					InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
-					log_info(("Player spawned interface vehicle is of type %s at %s"):format(interfaceType, locationConfig.name))
+					log_info(("Player spawned interface vehicle is of type %s at %s"):format(interfaceVariantName, locationConfig.name))
 					return
 				end
 			end
@@ -107,17 +92,17 @@ SystemManager.addEventHandler(InterfaceSystem, "onVehicleDespawn", 100,
 
 ---@param transform SWMatrix
 ---@param locationConfig LocationConfig
----@param interfaceType InterfaceType
-function InterfaceSystem.createInterfaceVehicle(transform, locationConfig, interfaceType)
-	local interfaceTypeData = INTERFACE_VEHICLES[interfaceType]
-	if interfaceTypeData == nil then
-		log_error(("Invalid interface type '%s' at location %s"):format(interfaceType, locationConfig.name))
+---@param interfaceVariantName InterfaceVariantName
+function InterfaceSystem.createInterfaceVehicle(transform, locationConfig, interfaceVariantName)
+	local interfaceVariant = InterfaceSystem.interfaceVariants[interfaceVariantName]
+	if interfaceVariant == nil then
+		log_error(("Invalid interface type '%s' at location %s"):format(interfaceVariantName, locationConfig.name))
 		return nil
 	end
-	transform = matrix.multiply(transform, interfaceTypeData.offset)
-	local vehicleId = VehicleManager.spawnStaticVehicle(InterfaceSystem, interfaceTypeData.vehicleName, transform)
+	transform = matrix.multiply(transform, interfaceVariant.offset)
+	local vehicleId = VehicleManager.spawnStaticVehicle(InterfaceSystem, interfaceVariant.vehicleName, transform)
 	InterfaceSystem.data.interfaceVehicles[vehicleId] = {
-		type=interfaceType,
+		type=interfaceVariantName,
 		location=locationConfig.name,
 	}
 	return vehicleId
@@ -161,11 +146,11 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 	end
 
 	local interfaceVehicleInfo = InterfaceSystem.data.interfaceVehicles[vehicle_id]
-	local interfaceTypeData = INTERFACE_VEHICLES[interfaceVehicleInfo.type]
+	local interfaceVariant = InterfaceSystem.interfaceVariants[interfaceVehicleInfo.type]
 
 	local doSetup = false
 	if not interface.enabled and interface.cooldown == nil then
-		interface.binnet = InterfaceSystem.BinnetBase:new()
+		interface.binnet = interfaceVariant.binnetBase:new()
 		interface.binnet.vehicleId = vehicle_id
 		interface.enabled = true
 		doSetup = true
@@ -174,7 +159,7 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 	local binnet = interface.binnet
 
 	local readValues = {}
-	for i=1,interfaceTypeData.binnetReadChannels do
+	for i=1,interfaceVariant.binnetReadChannels do
 		local dial, ok = server.getVehicleDial(vehicle_id, "O"..i)
 		if not ok then
 			return -1
@@ -187,7 +172,7 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 	if doSetup or tick % 10 == 0 then
 		interface.companyUpdate = true
 		local vehiclePos = server.getVehiclePos(vehicle_id, 0, 0, 0)
-		local players = PlayerManager.getAllPlayersDistance(vehiclePos, interfaceTypeData.range)
+		local players = PlayerManager.getAllPlayersDistance(vehiclePos, interfaceVariant.range)
 		if #players > 0 then
 			local companyName = CompanySystem.getPlayerCompanyName(players[1].player)
 			if interface.company ~= companyName then
@@ -203,8 +188,10 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 		binnet:send(InterfaceSystem.BinnetPackets.UPDATE_COMPANY)
 	end
 
-	local writeValues = binnet:write(interfaceTypeData.binnetWriteChannels)
-	for i=1,interfaceTypeData.binnetWriteChannels do
+	interfaceVariant:update(doSetup, tick, binnet)
+
+	local writeValues = binnet:write(interfaceVariant.binnetWriteChannels)
+	for i=1,interfaceVariant.binnetWriteChannels do
 		server.setVehicleKeypad(vehicle_id, "I"..i, writeValues[i] or 0)
 	end
 end
@@ -212,4 +199,5 @@ end
 ---@require_folder systems/interface
 require("systems.interface.commands")
 require("systems.interface.packets")
+require("systems.interface.variants")
 ---@require_folder_finish

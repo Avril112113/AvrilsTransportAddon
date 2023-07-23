@@ -1,4 +1,6 @@
--- NOTE: ALL binnets share readers/writers!
+-- Packets for all binnet interface variants.
+-- Packet ids 0-19 (inclusive) are reserved for these packets.
+
 ---@class BinnetBase : Binnet
 ---@field vehicleId integer
 local BinnetBase = Binnet:new()
