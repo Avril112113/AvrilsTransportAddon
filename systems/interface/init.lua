@@ -9,7 +9,8 @@ InterfaceSystem.interfaceVariants = {}
 
 
 ---@class LoadedInterface
----@field binnet Binnet
+---@field enabled boolean?
+---@field binnet Binnet?
 ---@field cooldown integer?  # Do not run anything until after this many ticks.
 ---@field company string?
 ---@field companyUpdate boolean?
@@ -30,7 +31,7 @@ SystemManager.addEventHandler(InterfaceSystem, "onCreate", 100,
 		if not is_world_create then
 			for vehicleId, _ in pairs(InterfaceSystem.data.interfaceVehicles) do
 				if InterfaceSystem.loadedInterfaces[vehicleId] == nil and server.getVehicleSimulating(vehicleId) then
-					InterfaceSystem.loadedInterfaces[vehicleId] = {cooldown=30}
+					InterfaceSystem._loadInterface(vehicleId)
 				end
 			end
 		end
@@ -48,14 +49,14 @@ SystemManager.addEventHandler(InterfaceSystem, "onTick", 100,
 SystemManager.addEventHandler(InterfaceSystem, "onVehicleLoad", 100,
 	function(vehicle_id)
 		if InterfaceSystem.data.interfaceVehicles[vehicle_id] then
-			InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+			InterfaceSystem._loadInterface(vehicle_id)
 		end
 	end
 )
 
 SystemManager.addEventHandler(InterfaceSystem, "onVehicleUnload", 100,
 	function(vehicle_id)
-		InterfaceSystem.loadedInterfaces[vehicle_id] = nil
+		InterfaceSystem._unloadInterface(vehicle_id)
 	end
 )
 
@@ -70,7 +71,7 @@ SystemManager.addEventHandler(InterfaceSystem, "onVehicleSpawn", 100,
 						type=interfaceVariantName,
 						location=locationConfig.name,
 					}
-					InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+					-- onVehicleLoad does the rest of the setup
 					log_info(("Player spawned interface vehicle is of type %s at %s"):format(interfaceVariantName, locationConfig.name))
 					return
 				end
@@ -81,10 +82,28 @@ SystemManager.addEventHandler(InterfaceSystem, "onVehicleSpawn", 100,
 
 SystemManager.addEventHandler(InterfaceSystem, "onVehicleDespawn", 100,
 	function(vehicle_id, player)
-		InterfaceSystem.loadedInterfaces[vehicle_id] = nil
+		InterfaceSystem._unloadInterface(vehicle_id)
 		InterfaceSystem.data.interfaceVehicles[vehicle_id] = nil
 	end
 )
+
+
+---@param vehicleId integer
+---@return LoadedInterface
+function InterfaceSystem._loadInterface(vehicleId)
+	-- If the interface exists and isn't loaded already.
+	if InterfaceSystem.data.interfaceVehicles[vehicleId] and InterfaceSystem.loadedInterfaces[vehicleId] == nil then
+		InterfaceSystem.loadedInterfaces[vehicleId] = {cooldown=30}
+	end
+	return InterfaceSystem.loadedInterfaces[vehicleId]
+end
+function InterfaceSystem._reloadInterface(vehicleId)
+	InterfaceSystem.loadedInterfaces[vehicleId] = {}
+	return InterfaceSystem.loadedInterfaces[vehicleId]
+end
+function InterfaceSystem._unloadInterface(vehicleId)
+	InterfaceSystem.loadedInterfaces[vehicleId] = nil
+end
 
 
 ---@param transform SWMatrix
@@ -128,7 +147,7 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 	local data, ok = server.getVehicleButton(vehicle_id, "Enabled")
 	if not ok or not data.on then
 		if interface.enabled then
-			InterfaceSystem.loadedInterfaces[vehicle_id] = {cooldown=30}
+			InterfaceSystem._reloadInterface(vehicle_id)
 		end
 		return
 	end
@@ -154,6 +173,7 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 		log_info(("Interface vehicle %.0f is being setup"):format(vehicle_id))
 	end
 	local binnet = interface.binnet
+	---@cast binnet -?
 
 	local readValues = {}
 	for i=1,interfaceVariant.binnetReadChannels do

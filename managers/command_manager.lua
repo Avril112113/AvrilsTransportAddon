@@ -112,7 +112,7 @@ function Command:setHandler(args, f)
 				log_error(("Command '%s' argument signature #%.0f: invalid format."):format(self.name, i))
 				argSig = {
 					name="UNKNOWN",
-					typ="string",
+					type="string",
 					optional=true,
 				}
 			else
