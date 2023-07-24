@@ -103,7 +103,7 @@ Command.new("location")
 							return -1, err
 						end
 						LocationSystem.storageAdd(locationConfig, producibleConfig, amount, "force")
-						return 0, ("%s now has %g (%s%+.2f) of '%s'"):format(locationConfig.name, round(LocationSystem.storageGet(locationConfig, producibleConfig), 1), amount, amount, producibleConfig.name)
+						return 0, ("%s now has %g (%+.2f) of '%s'"):format(locationConfig.name, round(LocationSystem.storageGet(locationConfig, producibleConfig), 1), amount, producibleConfig.name)
 					end)
 			)
 			:addSubcommand(
