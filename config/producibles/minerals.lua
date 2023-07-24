@@ -1,51 +1,51 @@
 ---@see SWOreTypeEnum
 
-LocationSystem
-	.addProducible(
+Producibles
+	.register(
 		ProducibleConfig.new("coal", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(0)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("iron", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(1)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("aluminium", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(2)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("gold", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(3)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("gold_dirt", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(4)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("uranium", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(5)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("iron_ingot", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(6)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("steel_ingot", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(7)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("aluminium_ingot", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(8)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("gold_impure_ingot", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(9)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("gold_ingot", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(10)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("uranium_ingot", PRODUCIBLE_TYPES.mineral)
 			:setMineralType(11)
 	)

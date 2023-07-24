@@ -21,7 +21,7 @@ Command.new("test")
 		end
 		---@type table<integer, ProducibleConfig>
 		local oreTypeToProducible = {}
-		for _, producibleConfig in pairs(LocationSystem.producibles) do
+		for _, producibleConfig in pairs(Producibles.byName) do
 			if producibleConfig.mineralType then
 				oreTypeToProducible[producibleConfig.mineralType] = producibleConfig
 			end

@@ -1,24 +1,24 @@
 ---@see SWTankFluidTypeEnum
 
 
-LocationSystem
-	.addProducible(
+Producibles
+	.register(
 		ProducibleConfig.new("diesel", PRODUCIBLE_TYPES.fluid)
 			:setFluidType(1)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("jetfuel", PRODUCIBLE_TYPES.fluid)
 			:setFluidType(2)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("oil", PRODUCIBLE_TYPES.fluid)
 			:setFluidType(5)
 	)
-	.addProducible(
+	.register(
 		ProducibleConfig.new("slurry", PRODUCIBLE_TYPES.fluid)
 			:setFluidType(8)
 	)
-	-- .addProducible(
+	-- .register(
 	-- 	ProducibleConfig.new("slurry saturated", PRODUCIBLE_TYPES.fluid)
 	-- 		:setFluidType(9)
 	-- )

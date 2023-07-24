@@ -2,52 +2,52 @@
 ---@see SWCreatureTypeEnum
 
 -- Do we really want to include passengers in the producible/consumable code?
--- LocationSystem
--- 	.addProducible(
+-- Producibles
+-- 	.register(
 -- 		ProducibleConfig.new("worker", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 1)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("fisher", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 2)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("waiter", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 3)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("swimsuit", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 4)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("military", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 5)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("office", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 6)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("police", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 7)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("science", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 8)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("medical", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 9)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("wetsuit", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 10)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("civilian", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("outfit", 11)
 -- 	)
--- 	.addProducible(
+-- 	.register(
 -- 		ProducibleConfig.new("dog", PRODUCIBLE_TYPES.passenger)
 -- 			:addPassengerVariant("creature", 18)
 -- 			:addPassengerVariant("creature", 19)

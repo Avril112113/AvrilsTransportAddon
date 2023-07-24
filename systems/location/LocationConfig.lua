@@ -26,7 +26,7 @@ end
 ---@param producibleName string
 ---@param amount number? # `nil` to remove limit
 function LocationConfig:setStorageProducibleLimit(producibleName, amount)
-	local producible = LocationSystem.producibles[producibleName]
+	local producible = Producibles.get(producibleName)
 	if producible == nil then
 		log_error(("Attempt to set storage limit of invalid producible '%s'"):format(producibleName))
 		return self

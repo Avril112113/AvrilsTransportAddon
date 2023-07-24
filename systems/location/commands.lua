@@ -94,7 +94,7 @@ Command.new("location")
 				Command.new("add")
 					:setDesc("Adds/removes resources from a location's storage.")
 					:setHandler({"producible:string", "amount:number", "location:string?"}, function(self, ctx, producibleName, amount, locationName)
-						local producibleConfig = LocationSystem.producibles[producibleName]
+						local producibleConfig = Producibles.byName[producibleName]
 						if producibleConfig == nil then
 							return -1, ("Invalid producible '%s'"):format(producibleName)
 						end
@@ -110,7 +110,7 @@ Command.new("location")
 				Command.new("set")
 					:setDesc("Sets resources in a location's storage.")
 					:setHandler({"producible:string", "amount:number", "location:string?"}, function(self, ctx, producibleName, amount, locationName)
-						local producibleConfig = LocationSystem.producibles[producibleName]
+						local producibleConfig = Producibles.byName[producibleName]
 						if producibleConfig == nil then
 							return -1, ("Invalid producible '%s'"):format(producibleName)
 						end

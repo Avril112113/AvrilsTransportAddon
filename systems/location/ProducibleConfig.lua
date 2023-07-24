@@ -50,11 +50,3 @@ function ProducibleConfig:setVehicleLocationName(vehicleLocationName)
 	self.vehicleLocationName = vehicleLocationName
 	return self
 end
-
-
----@require_folder config/producibles
-require("config.producibles.fluids")
-require("config.producibles.manufactured")
-require("config.producibles.minerals")
-require("config.producibles.passengers")
----@require_folder_finish

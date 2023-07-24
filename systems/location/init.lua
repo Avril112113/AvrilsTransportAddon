@@ -5,10 +5,7 @@ local RESOURCE_UPDATE_RATE = 60  -- In ticks
 LocationSystem = {name="LocationSystem"}
 ---@type table<string, LocationConfig>
 LocationSystem.locations = {}
----@type table<string, ProducibleConfig>
-LocationSystem.producibles = {}
 LocationSystem.mapId = server.getMapID()
-
 
 
 SystemManager.addEventHandler(LocationSystem, "onCreate", 100,
@@ -295,12 +292,6 @@ function LocationSystem.syncMap(player)
 	end
 end
 
----@param producibleConfig ProducibleConfig
-function LocationSystem.addProducible(producibleConfig)
-	LocationSystem.producibles[producibleConfig.name] = producibleConfig
-	return LocationSystem
-end
-
 ---@param locationConfig LocationConfig
 function LocationSystem.addLocation(locationConfig)
 	LocationSystem.locations[locationConfig.name] = locationConfig
@@ -334,6 +325,7 @@ require("systems.location.commands")
 require("systems.location.LocationConfig")
 require("systems.location.LocationRecipe")
 require("systems.location.ProducibleConfig")
+require("systems.location.Producibles")
 ---@require_folder_finish
 
 require("config.recipes")

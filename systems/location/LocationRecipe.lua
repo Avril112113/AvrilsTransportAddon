@@ -36,7 +36,7 @@ end
 ---@param producibleName string
 ---@param amount number
 function RecipeData:setConsumption(producibleName, amount)
-	local producible = LocationSystem.producibles[producibleName]
+	local producible = Producibles.get(producibleName)
 	if producible == nil then
 		log_error(("Attempt to set consumption of invalid producible '%s'"):format(producibleName))
 		return self
@@ -48,7 +48,7 @@ end
 ---@param producibleName string
 ---@param amount number
 function RecipeData:setProduction(producibleName, amount)
-	local producible = LocationSystem.producibles[producibleName]
+	local producible = Producibles.get(producibleName)
 	if producible == nil then
 		log_error(("Attempt to set consumption of invalid producible '%s'"):format(producibleName))
 		return self
