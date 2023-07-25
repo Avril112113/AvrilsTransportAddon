@@ -46,11 +46,21 @@ end)
 
 
 ---@param binnet BinnetBase
-BinnetBase:registerPacketReader(2, function(binnet, writer, packetId)
-	binnet:send(BinnetPackets.UPDATE_LOCATION_STORAGE, PRODUCIBLE_TYPE_INDICES[writer:readUByte()])
+BinnetBase:registerPacketReader(2, function(binnet, reader, packetId)
+	local filter = nil
+	if #reader > 0 then
+		filter = PRODUCIBLE_TYPE_INDICES[reader:readUByte()]
+	end
+	local minQuantity = -math.huge
+	if #reader > 0 then
+		-- To save on packet size, we're keeping it small. This can be updated if ever needed.
+		minQuantity = reader:readUByte()
+	end
+	binnet:send(BinnetPackets.UPDATE_LOCATION_STORAGE, filter, minQuantity)
 end)
 ---@param binnet BinnetBase
-BinnetPackets.UPDATE_LOCATION_STORAGE = BinnetBase:registerPacketWriter(2, function(binnet, writer, filterType)
+BinnetPackets.UPDATE_LOCATION_STORAGE = BinnetBase:registerPacketWriter(2, function(binnet, writer, filterType, minQuantity)
+	minQuantity = minQuantity or -math.huge
 	local interfaceInfo = InterfaceSystem.data.interfaceVehicles[binnet.vehicleId]
 	local locationConfig = LocationSystem.locations[interfaceInfo.location]
 	local locationData = LocationSystem.data.locations[interfaceInfo.location]
@@ -59,10 +69,14 @@ BinnetPackets.UPDATE_LOCATION_STORAGE = BinnetBase:registerPacketWriter(2, funct
 	local function writeProducible(producibleName)
 		if produciblesWritten[producibleName] == nil then
 			local producibleConfig = Producibles.get(producibleName)
-			if filterType == nil or producibleConfig.type == filterType then
+			if
+				(filterType == nil or producibleConfig.type == filterType) and
+				locationData.storage[producibleName] ~= nil and
+				locationData.storage[producibleName] > minQuantity
+			then
 				produciblesWritten[producibleName] = true
 				writer:writeString(producibleName)
-				writer:writeCustom(locationData.storage[producibleName], -2^24, 2^24, 0.01)
+				writer:writeCustom(locationData.storage[producibleName] or 0, -2^24, 2^24, 0.01)
 			end
 		end
 	end
