@@ -38,9 +38,9 @@ end
 ---@param enumType "fluid"|"mineral"
 ---@param enumValue integer
 ---@return ProducibleConfig
-function Producibles.getByEnum(enumType, enumValue)
+function Producibles.getByEnum(enumType, enumValue, optional)
 	local producibleConfig = Producibles.enums[enumType][enumValue]
-	if producibleConfig == nil then
+	if optional ~= true and producibleConfig == nil then
 		log_error(("Producible by SW enum %s[%.0f] does not exist."):format(enumType, enumValue))
 		error(("Producible by SW enum %s[%.0f] does not exist."):format(enumType, enumValue))
 	end

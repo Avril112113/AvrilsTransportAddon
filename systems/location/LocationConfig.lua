@@ -14,7 +14,7 @@ LocationConfig = {}
 ---@param name string
 ---@return LocationConfig
 function LocationConfig.new(name)
-	return shallowCopy(LocationConfig, {name=name, production={}, storageLimit={}})
+	return shallowCopy(LocationConfig, {name=name, production={}, storageLimit={}, storageTypeLimit={}})
 end
 
 ---@param recipe LocationRecipe
