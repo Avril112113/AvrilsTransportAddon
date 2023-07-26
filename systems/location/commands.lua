@@ -83,9 +83,8 @@ Command.new("location")
 				if locationConfig == nil then
 					return -1, err
 				end
-				local locationData = LocationSystem.data.locations[locationConfig.name]
 				local lines = {("Storage for %s:"):format(locationConfig.name)}
-				for producibleName, amount in pairs(locationData.storage) do
+				for producibleName, amount in pairs(LocationSystem.storageAll(locationConfig)) do
 					table.insert(lines, ("- %s: %.02f"):format(producibleName, amount))
 				end
 				return 0, table.concat(lines, "\n")
@@ -118,8 +117,7 @@ Command.new("location")
 						if locationConfig == nil then
 							return -1, err
 						end
-						local adjust = amount - LocationSystem.storageGet(locationConfig, producibleConfig)
-						LocationSystem.storageAdd(locationConfig, producibleConfig, adjust, "force")
+						LocationSystem.storageSet(locationConfig, producibleConfig, amount, "force")
 						return 0, ("%s now has %g of '%s'"):format(locationConfig.name, round(LocationSystem.storageGet(locationConfig, producibleConfig), 1), producibleConfig.name)
 					end)
 			)
@@ -131,8 +129,7 @@ Command.new("location")
 						if locationConfig == nil then
 							return -1, err
 						end
-						local locationData = LocationSystem.data.locations[locationConfig.name]
-						local storage = locationData.storage
+						local storage = LocationSystem.storageAll(locationConfig)
 						for producibleName, amount in pairs(storage) do
 							storage[producibleName] = 0
 						end

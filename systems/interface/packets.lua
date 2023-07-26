@@ -63,7 +63,7 @@ BinnetPackets.UPDATE_LOCATION_STORAGE = BinnetBase:registerPacketWriter(2, funct
 	minQuantity = minQuantity or -math.huge
 	local interfaceInfo = InterfaceSystem.data.interfaceVehicles[binnet.vehicleId]
 	local locationConfig = LocationSystem.locations[interfaceInfo.location]
-	local locationData = LocationSystem.data.locations[interfaceInfo.location]
+	local storage = LocationSystem.storageAll(locationConfig)
 	---@type table<string, boolean>
 	local produciblesWritten = {}
 	local function writeProducible(producibleName)
@@ -71,12 +71,12 @@ BinnetPackets.UPDATE_LOCATION_STORAGE = BinnetBase:registerPacketWriter(2, funct
 			local producibleConfig = Producibles.get(producibleName)
 			if
 				(filterType == nil or producibleConfig.type == filterType) and
-				locationData.storage[producibleName] ~= nil and
-				locationData.storage[producibleName] > minQuantity
+				storage[producibleName] ~= nil and
+				storage[producibleName] > minQuantity
 			then
 				produciblesWritten[producibleName] = true
 				writer:writeString(producibleName)
-				writer:writeCustom(locationData.storage[producibleName] or 0, -2^24, 2^24, 0.01)
+				writer:writeCustom(storage[producibleName] or 0, -2^24, 2^24, 0.01)
 			end
 		end
 	end
@@ -88,7 +88,7 @@ BinnetPackets.UPDATE_LOCATION_STORAGE = BinnetBase:registerPacketWriter(2, funct
 			writeProducible(producible.name)
 		end
 	end
-	for producibleName, amount in pairs(locationData.storage) do
+	for producibleName, amount in pairs(storage) do
 		writeProducible(producibleName)
 	end
 end)

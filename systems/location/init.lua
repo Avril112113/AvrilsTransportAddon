@@ -46,7 +46,7 @@ SystemManager.addEventHandler(LocationSystem, "onCreate", 100,
 				locationData.productionTicks = {}
 			end
 		end
-	
+
 		for name, locationConfig in pairs(LocationSystem.locations) do
 			local ok, msg = locationConfig:processZones()
 			if not ok then
@@ -54,11 +54,11 @@ SystemManager.addEventHandler(LocationSystem, "onCreate", 100,
 				LocationSystem.locations[name] = nil
 			end
 		end
-	
+
 		if is_world_create then
 			LocationSystem.spawnInterfaces()
 		end
-	
+
 		LocationSystem.syncMap()
 	end
 )
@@ -102,56 +102,82 @@ SystemManager.addEventHandler(LocationSystem, "onToggleMap", 100,
 function LocationSystem.storageGet(locationConfig, producibleConfig)
 	local locationData = LocationSystem.data.locations[locationConfig.name]
 	local storage = locationData.storage
-	return storage[producibleConfig.name]
+	return storage[producibleConfig.name] or 0
+end
+
+---@param locationConfig LocationConfig
+---@return table<string, number>
+function LocationSystem.storageAll(locationConfig)
+	return LocationSystem.data.locations[locationConfig.name].storage
+end
+
+---@param locationConfig LocationConfig
+---@param producibleConfig ProducibleConfig
+---@return number
+function LocationSystem.storageLimitFor(locationConfig, producibleConfig)
+	return locationConfig.storageLimit[producibleConfig] or locationConfig.storageTypeLimit[producibleConfig.type] or math.huge
 end
 
 ---@param locationConfig LocationConfig
 ---@param producibleConfig ProducibleConfig
 ---@return number
 function LocationSystem.storageFreeSpaceFor(locationConfig, producibleConfig)
-	local locationData = LocationSystem.data.locations[locationConfig.name]
-	local storage = locationData.storage
-	local limit = locationConfig.storageLimit[producibleConfig] or locationConfig.storageTypeLimit[producibleConfig.type]
-	if limit == nil then
-		return math.huge
-	end
-	return math.min(math.max(limit-storage[producibleConfig.name], 0), limit)
+	local storage = LocationSystem.storageAll(locationConfig)
+	local limit = LocationSystem.storageLimitFor(locationConfig, producibleConfig)
+	return math.min(math.max(limit-(storage[producibleConfig.name] or 0), 0), limit)
 end
 
 ---@param locationConfig LocationConfig
 ---@param producibleConfig ProducibleConfig
 ---@param amount number
 ---@param mode "full"|"partial"|"force"
----@return number remainder
+---@return number remainder # Amount left over that wasn't able to be added.
 function LocationSystem.storageAdd(locationConfig, producibleConfig, amount, mode)
 	local freeSpace = mode == "force" and math.huge or LocationSystem.storageFreeSpaceFor(locationConfig, producibleConfig)
-	local locationData = LocationSystem.data.locations[locationConfig.name]
-	local storage = locationData.storage
+	local storage = LocationSystem.storageAll(locationConfig)
 
 	local transfer = math.min(freeSpace, amount)
 	if mode == "full" and amount ~= transfer then
 		return amount
 	end
 	storage[producibleConfig.name] = (storage[producibleConfig.name] or 0) + transfer
-	local remainder = amount-transfer
-	return remainder
+	return amount-transfer
 end
 
 ---@param locationConfig LocationConfig
 ---@param producibleConfig ProducibleConfig
 ---@param amount number
 ---@param mode "full"|"partial"|"force"
----@return number amount
+---@return number amount # The amount that was removed.
 function LocationSystem.storageRemove(locationConfig, producibleConfig, amount, mode)
-	local locationData = LocationSystem.data.locations[locationConfig.name]
-
-	local storage = locationData.storage
+	local storage = LocationSystem.storageAll(locationConfig)
 	local transfer = mode == "force" and amount or math.min(amount, storage[producibleConfig.name] or 0)
 	if transfer == 0 or (mode == "full" and transfer ~= amount) then
 		return 0
 	end
 	storage[producibleConfig.name] = (storage[producibleConfig.name] or 0) - transfer
+	if storage[producibleConfig.name] == 0 then
+		storage[producibleConfig.name] = nil
+	end
 	return transfer
+end
+
+---@param locationConfig LocationConfig
+---@param producibleConfig ProducibleConfig
+---@param amount number
+---@param mode "full"|"partial"|"force"
+---@return number remainder # Amount left over that wasn't able to be added.
+function LocationSystem.storageSet(locationConfig, producibleConfig, amount, mode)
+	local storage = LocationSystem.storageAll(locationConfig)
+	local setAmount = mode == "force" and amount or math.min(amount, LocationSystem.storageLimitFor(locationConfig, producibleConfig))
+	if mode == "full" and amount ~= setAmount then
+		return 0
+	end
+	storage[producibleConfig.name] = setAmount
+	if storage[producibleConfig.name] == 0 then
+		storage[producibleConfig.name] = nil
+	end
+	return amount-setAmount
 end
 
 ---@param pendingUpdateTicks integer
@@ -201,12 +227,10 @@ function LocationSystem.updateProduction(pendingUpdateTicks)
 					-- log_debug(("- Recipe %s"):format(recipe.name))
 					for producibleConfig, amount in pairs(recipe.consumes) do
 						LocationSystem.storageAdd(locationConfig, producibleConfig, amount*produceCount, "force")
-						-- storage[producibleConfig.name] = storage[producibleConfig.name] - amount*produceCount
 						-- log_debug(("- - Consumed %s of %s"):format(amount*produceCount, producibleConfig.name))
 					end
 					for producibleConfig, amount in pairs(recipe.produces) do
 						LocationSystem.storageRemove(locationConfig, producibleConfig, amount*produceCount, "force")
-						-- storage[producibleConfig.name] = (storage[producibleConfig.name] or 0) + amount*produceCount
 						-- log_debug(("- - Produced %s of %s"):format(amount*produceCount, producibleConfig.name))
 					end
 				end
