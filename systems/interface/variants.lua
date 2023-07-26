@@ -58,9 +58,6 @@ Variants.pump = {
 		local interfaceInfo = InterfaceSystem.data.interfaceVehicles[vehicleId]
 		local locationConfig = LocationSystem.locations[interfaceInfo.location]
 
-		if interface.company == nil then
-			return
-		end
 		local companyData = CompanySystem.getCompany(interface.company)
 		if companyData == nil then
 			return
@@ -128,6 +125,12 @@ Variants.pump = {
 		end
 		if not setSelectedTankAmount then
 			interface.selectedTankAmount = nil
+		end
+
+		if interface.selectedProducibleName ~= nil then
+			interface.locked = true
+		elseif interface.autoSelectCooldown <= 0 then  -- Don't reset until the company was refunded lost fluid.
+			interface.locked = false
 		end
 
 		if interface.pumpAmount ~= prevPumpAmount then
