@@ -8,6 +8,7 @@ PlayerManager = {}
 PlayerManager.playersBySteamId = {}
 PlayerManager.playersByPeerId = {}
 PlayerManager.playersByName = {}
+PlayerManager.playersWithMapOpen = {}
 
 
 ---@param peer_id integer The player's peer ID
@@ -23,6 +24,7 @@ function PlayerManager.setPlayer(peer_id, steam_id, name, is_admin, is_auth)
 		name = name,
 		admin = is_admin,
 		auth = is_auth,
+		mapOpen = false,
 	}
 	PlayerManager.playersBySteamId[player.steam_id] = player
 	PlayerManager.playersByPeerId[player.peer_id] = player
@@ -34,6 +36,7 @@ function PlayerManager.unsetPlayer(player)
 	PlayerManager.playersBySteamId[player.steam_id] = nil
 	PlayerManager.playersByPeerId[player.peer_id] = nil
 	PlayerManager.playersByName[player.name] = nil
+	PlayerManager.playersWithMapOpen[player.peer_id] = nil
 end
 
 
@@ -60,6 +63,11 @@ function PlayerManager.getAll()
 	return PlayerManager.playersByPeerId
 end
 
+---@return table<integer, Player>
+function PlayerManager.getWithMapOpen()
+	return PlayerManager.playersWithMapOpen
+end
+
 ---@param transform SWMatrix
 ---@param maxRadius number?
 ---@return {player:Player, dist:number}[]
@@ -77,6 +85,14 @@ function PlayerManager.getAllPlayersDistance(transform, maxRadius)
 	end)
 	return players
 end
+
+
+---@param player Player
+---@param isOpen boolean
+EventManager.addEventHandler("onToggleMap", 10, function(player, isOpen)
+	player.mapOpen = isOpen
+	PlayerManager.playersWithMapOpen[player.peer_id] = isOpen and player or nil
+end)
 
 
 EventManager.addEventHandler("onCreate", 1, function(is_world_create)
