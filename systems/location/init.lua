@@ -78,6 +78,12 @@ SystemManager.addEventHandler(LocationSystem, "onTick", 100,
 			pendingUpdateTicks = 0
 		end
 		LocationSystem.data.pendingUpdateTicks = pendingUpdateTicks
+
+		if TickManager.sessionTick % 60 == 0 then
+			for _, player in pairs(PlayerManager.getWithMapOpen()) do
+				LocationSystem.syncMap(player)
+			end
+		end
 	end
 )
 
