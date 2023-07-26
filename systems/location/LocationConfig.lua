@@ -7,6 +7,7 @@
 ---@class LocationConfig
 ---@field name string
 ---@field production LocationRecipe[]
+---@field totalProduction table<string,number>  # per second
 ---@field storageLimit table<ProducibleConfig,number>
 ---@field storageTypeLimit table<ProducibleType,number>
 LocationConfig = {}
@@ -14,12 +15,18 @@ LocationConfig = {}
 ---@param name string
 ---@return LocationConfig
 function LocationConfig.new(name)
-	return shallowCopy(LocationConfig, {name=name, production={}, storageLimit={}, storageTypeLimit={}})
+	return shallowCopy(LocationConfig, {name=name, production={}, totalProduction={}, storageLimit={}, storageTypeLimit={}})
 end
 
 ---@param recipe LocationRecipe
 function LocationConfig:addProduction(recipe)
 	table.insert(self.production, recipe)
+	for producibleConfig, amount in pairs(recipe.consumes) do
+		self.totalProduction[producibleConfig.name] = (self.totalProduction[producibleConfig.name] or 0) - (amount / recipe.rate)
+	end
+	for producibleConfig, amount in pairs(recipe.produces) do
+		self.totalProduction[producibleConfig.name] = (self.totalProduction[producibleConfig.name] or 0) + (amount / recipe.rate)
+	end
 	return self
 end
 

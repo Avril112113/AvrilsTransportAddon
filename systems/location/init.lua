@@ -147,6 +147,7 @@ function LocationSystem.storageAdd(locationConfig, producibleConfig, amount, mod
 		return amount
 	end
 	storage[producibleConfig.name] = (storage[producibleConfig.name] or 0) + transfer
+	LocationSystem._storageCheckSetNil(locationConfig, producibleConfig)
 	return amount-transfer
 end
 
@@ -162,9 +163,7 @@ function LocationSystem.storageRemove(locationConfig, producibleConfig, amount, 
 		return 0
 	end
 	storage[producibleConfig.name] = (storage[producibleConfig.name] or 0) - transfer
-	if storage[producibleConfig.name] == 0 then
-		storage[producibleConfig.name] = nil
-	end
+	LocationSystem._storageCheckSetNil(locationConfig, producibleConfig)
 	return transfer
 end
 
@@ -180,10 +179,17 @@ function LocationSystem.storageSet(locationConfig, producibleConfig, amount, mod
 		return 0
 	end
 	storage[producibleConfig.name] = setAmount
-	if storage[producibleConfig.name] == 0 then
+	LocationSystem._storageCheckSetNil(locationConfig, producibleConfig)
+	return amount-setAmount
+end
+
+---@param locationConfig LocationConfig
+---@param producibleConfig ProducibleConfig
+function LocationSystem._storageCheckSetNil(locationConfig, producibleConfig)
+	local storage = LocationSystem.storageAll(locationConfig)
+	if storage[producibleConfig.name] == 0 and locationConfig.totalProduction[producibleConfig.name] == nil then
 		storage[producibleConfig.name] = nil
 	end
-	return amount-setAmount
 end
 
 ---@param pendingUpdateTicks integer
@@ -266,17 +272,12 @@ function LocationSystem.syncMap(player)
 			end
 
 			---@type table<string, number>
-			local productionDeltas = {}  -- per hour
 			if LocationSystem.data.map.production then
 				for _, recipe in pairs(locationConfig.production) do
 					for producibleConfig, amount in pairs(recipe.consumes) do
-						local amountPerHour = (amount / recipe.rate) * 60 * 60
-						productionDeltas[producibleConfig.name] = (productionDeltas[producibleConfig.name] or 0) - amountPerHour
 						listProducible(producibleConfig.name)
 					end
 					for producibleConfig, amount in pairs(recipe.produces) do
-						local amountPerHour = (amount / recipe.rate) * 60 * 60
-						productionDeltas[producibleConfig.name] = (productionDeltas[producibleConfig.name] or 0) + amountPerHour
 						listProducible(producibleConfig.name)
 					end
 				end
@@ -292,12 +293,12 @@ function LocationSystem.syncMap(player)
 				if LocationSystem.data.map.storage then
 					detail = ("%g"):format(round(locationData.storage[producibleName], 1))
 				end
-				local delta = productionDeltas[producibleName]
+				local delta = locationConfig.totalProduction[producibleName]
 				if LocationSystem.data.map.production and delta then
 					if detail then
-						detail = detail .. (" (%+g/h)"):format(round(delta, 1))
+						detail = detail .. (" (%+g/h)"):format(round(delta * 60 * 60, 1))
 					else
-						detail = ("%+g/h"):format(round(delta, 1))
+						detail = ("%+g/h"):format(round(delta * 60 * 60, 1))
 					end
 				end
 				table.insert(hoverLines, ("%s: %s"):format(producibleName, detail))
