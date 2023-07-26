@@ -29,6 +29,7 @@ Variants.general = {
 
 ---@class LoadedInterface_PumpInterface : LoadedInterface
 ---@field selectedProducibleName string?
+---@field autoSelectCooldown number?
 ---@field pumpAmount number
 ---@field pumpMoney number
 ---@type InterfaceVariant
@@ -39,22 +40,23 @@ Variants.pump = {
 	binnetReadChannels=3,
 	binnetWriteChannels=9,
 	binnetBase=InterfaceSystem.BinnetBase:new(),
+	updateRate=60,
 	setup=function(self, vehicleId, interface)
 		---@cast interface LoadedInterface_PumpInterface
 		interface.selectedProducibleName = nil
+		interface.autoSelectCooldown = 0
 		interface.pumpAmount = 0
 		interface.pumpMoney = 0
 	end,
 	update=function(self, vehicleId, interface)
 		---@cast interface LoadedInterface_PumpInterface
 
-		if TickManager.sessionTick % 60 ~= 0 then
+		if TickManager.sessionTick % self.updateRate ~= 0 then
 			return
 		end
 
 		local interfaceInfo = InterfaceSystem.data.interfaceVehicles[vehicleId]
 		local locationConfig = LocationSystem.locations[interfaceInfo.location]
-		local locationData = LocationSystem.data.locations[interfaceInfo.location]
 
 		if interface.company == nil then
 			return
@@ -76,10 +78,12 @@ Variants.pump = {
 				local producibleConfig = Producibles.getByEnum("fluid", fluidEnum, true)
 				if producibleConfig ~= nil then
 					if interface.selectedProducibleName ~= producibleConfig.name then
-						interface.selectedProducibleName = producibleConfig.name
-						interface.pumpAmount = 0
-						interface.pumpMoney = 0
-						interface.binnet:send(20)
+						if interface.autoSelectCooldown <= 0 then
+							interface.selectedProducibleName = producibleConfig.name
+							interface.pumpAmount = 0
+							interface.pumpMoney = 0
+							interface.binnet:send(20)
+						end
 					end
 					local remainder = LocationSystem.storageAdd(locationConfig, producibleConfig, amount, "partial")
 					server.setVehicleTank(vehicleId, "fluid_in", remainder, fluidEnum)
@@ -129,6 +133,10 @@ Variants.pump = {
 		if interface.pumpAmount ~= prevPumpAmount then
 			interface.binnet:send(21)
 		end
+
+		if interface.autoSelectCooldown ~= nil then
+			interface.autoSelectCooldown = interface.autoSelectCooldown - self.updateRate
+		end
 	end,
 }
 ---@param binnet BinnetBase
@@ -144,6 +152,7 @@ Variants.pump.binnetBase:registerPacketReader(20, function(binnet, reader, packe
 	end
 
 	interface.selectedProducibleName = #reader > 0 and reader:readString() or nil
+	interface.autoSelectCooldown = 180
 	interface.pumpAmount = 0
 	interface.pumpMoney = 0
 end)
