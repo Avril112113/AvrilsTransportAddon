@@ -226,11 +226,11 @@ function LocationSystem.updateProduction(pendingUpdateTicks)
 					end
 					-- log_debug(("- Recipe %s"):format(recipe.name))
 					for producibleConfig, amount in pairs(recipe.consumes) do
-						LocationSystem.storageAdd(locationConfig, producibleConfig, amount*produceCount, "force")
+						LocationSystem.storageRemove(locationConfig, producibleConfig, amount*produceCount, "force")
 						-- log_debug(("- - Consumed %s of %s"):format(amount*produceCount, producibleConfig.name))
 					end
 					for producibleConfig, amount in pairs(recipe.produces) do
-						LocationSystem.storageRemove(locationConfig, producibleConfig, amount*produceCount, "force")
+						LocationSystem.storageAdd(locationConfig, producibleConfig, amount*produceCount, "force")
 						-- log_debug(("- - Produced %s of %s"):format(amount*produceCount, producibleConfig.name))
 					end
 				end
