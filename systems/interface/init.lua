@@ -9,11 +9,11 @@ InterfaceSystem.interfaceVariants = {}
 
 
 ---@class LoadedInterface
----@field enabled boolean?
----@field binnet Binnet?
----@field cooldown integer?  # Do not run anything until after this many ticks.
+---@field active boolean?
 ---@field company string?
----@field companyUpdate boolean?
+---@field binnet Binnet?
+---@field cooldown integer?
+---@field locked boolean? # If true, company will not change nor will the interface be disabled.
 
 ---@type table<integer, LoadedInterface>
 InterfaceSystem.loadedInterfaces = {}
@@ -93,7 +93,7 @@ SystemManager.addEventHandler(InterfaceSystem, "onVehicleDespawn", 100,
 function InterfaceSystem._loadInterface(vehicleId)
 	-- If the interface exists and isn't loaded already.
 	if InterfaceSystem.data.interfaceVehicles[vehicleId] and InterfaceSystem.loadedInterfaces[vehicleId] == nil then
-		InterfaceSystem.loadedInterfaces[vehicleId] = {cooldown=30}
+		InterfaceSystem.loadedInterfaces[vehicleId] = {cooldown=10}
 	end
 	return InterfaceSystem.loadedInterfaces[vehicleId]
 end
@@ -141,16 +141,15 @@ function InterfaceSystem.despawnAllInterfaces()
 	end
 end
 
----@param vehicle_id integer
+---@param vehicleId integer
 ---@param interface LoadedInterface
-function InterfaceSystem.updateVehicle(vehicle_id, interface)
-	local data, ok = server.getVehicleButton(vehicle_id, "Enabled")
-	if not ok or not data.on then
-		if interface.enabled then
-			InterfaceSystem._reloadInterface(vehicle_id)
-		end
+function InterfaceSystem.updateVehicle(vehicleId, interface)
+	if not server.getVehicleSimulating(vehicleId) then
 		return
 	end
+
+	local interfaceVehicleInfo = InterfaceSystem.data.interfaceVehicles[vehicleId]
+	local interfaceVariant = InterfaceSystem.interfaceVariants[interfaceVehicleInfo.type]
 
 	if interface.cooldown ~= nil then
 		interface.cooldown = interface.cooldown - 1
@@ -161,60 +160,70 @@ function InterfaceSystem.updateVehicle(vehicle_id, interface)
 		end
 	end
 
-	local interfaceVehicleInfo = InterfaceSystem.data.interfaceVehicles[vehicle_id]
-	local interfaceVariant = InterfaceSystem.interfaceVariants[interfaceVehicleInfo.type]
+	local prevCompany = interface.company
+	if interface.locked ~= true and TickManager.sessionTick % 10 == 0 then
+		local vehiclePos = server.getVehiclePos(vehicleId, 0, 0, 0)
+		local players = PlayerManager.getAllPlayersDistance(vehiclePos, interfaceVariant.range)
+		local prevActive = interface.active
+		interface.active = #players > 0 and players[1].dist <= interfaceVariant.range
+		interface.company = #players > 0 and CompanySystem.getPlayerCompanyName(players[1].player) or nil
+		if interface.active ~= prevActive then
+			server.setVehicleKeypad(vehicleId, "Enabled", interface.active and 1 or 0)
+		end
+		-- local button, ok = server.getVehicleButton(vehicleId, "Enabled")
+		-- if ok and button.on ~= interface.active then
+		-- 	server.pressVehicleButton(vehicleId, "Enabled")
+		-- end
+		if not interface.active then
+			interface.binnet = nil
+			return
+		end
+	elseif not interface.active then
+		-- local button, ok = server.getVehicleButton(vehicleId, "Enabled")
+		-- if ok and button.on ~= interface.active then
+		-- 	server.pressVehicleButton(vehicleId, "Enabled")
+		-- 	log_info(("Interface vehicle %.0f active state changed to %s"):format(vehicleId, interface.active))
+		-- end
+		return
+	end
 
 	local doSetup = false
-	if not interface.enabled and interface.cooldown == nil then
+	if interface.binnet == nil then
+		log_info(("Interface vehicle %.0f is being setup"):format(vehicleId))
 		interface.binnet = interfaceVariant.binnetBase:new()
-		interface.binnet.vehicleId = vehicle_id
-		interface.enabled = true
+		interface.binnet.vehicleId = vehicleId
 		doSetup = true
-		log_info(("Interface vehicle %.0f is being setup"):format(vehicle_id))
 	end
 	local binnet = interface.binnet
 	---@cast binnet -?
 
 	local readValues = {}
 	for i=1,interfaceVariant.binnetReadChannels do
-		local dial, ok = server.getVehicleDial(vehicle_id, "O"..i)
+		local dial, ok = server.getVehicleDial(vehicleId, "O"..i)
 		if not ok then
-			return -1
+			return
 		end
 		readValues[i] = dial.value
 	end
 	binnet:process(readValues)
 
-	interface.companyUpdate = nil
-	if doSetup or TickManager.sessionTick % 10 == 0 then
-		interface.companyUpdate = true
-		local vehiclePos = server.getVehiclePos(vehicle_id, 0, 0, 0)
-		local players = PlayerManager.getAllPlayersDistance(vehiclePos, interfaceVariant.range)
-		if #players > 0 then
-			local companyName = CompanySystem.getPlayerCompanyName(players[1].player)
-			if interface.company ~= companyName then
-				interface.company = companyName
-			end
-		end
-	end
-
 	if doSetup then
 		binnet:send(InterfaceSystem.BinnetPackets.UPDATE_INTERFACE)
 	end
-	if doSetup or interface.companyUpdate then
+	if doSetup or interface.company ~= prevCompany then
 		binnet:send(InterfaceSystem.BinnetPackets.UPDATE_COMPANY)
 	end
 
 	if doSetup and interfaceVariant.setup then
-		interfaceVariant:setup(vehicle_id, interface)
+		interfaceVariant:setup(vehicleId, interface)
 	end
 	if interfaceVariant.update then
-		interfaceVariant:update(vehicle_id, interface)
+		interfaceVariant:update(vehicleId, interface)
 	end
 
 	local writeValues = binnet:write(interfaceVariant.binnetWriteChannels)
 	for i=1,interfaceVariant.binnetWriteChannels do
-		server.setVehicleKeypad(vehicle_id, "I"..i, writeValues[i] or 0)
+		server.setVehicleKeypad(vehicleId, "I"..i, writeValues[i] or 0)
 	end
 end
 
