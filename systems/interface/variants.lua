@@ -17,7 +17,7 @@
 
 local Variants = InterfaceSystem.interfaceVariants
 
----@type InterfaceVariant
+---@class InterfaceVariantGeneral : InterfaceVariant
 Variants.general = {
 	vehicleName="vehicle_interface",
 	offset=matrix.translation(0, -1.25, 0),
@@ -25,14 +25,74 @@ Variants.general = {
 	binnetReadChannels=3,
 	binnetWriteChannels=9,
 	binnetBase=InterfaceSystem.BinnetBase:new(),
+	INFRASTRUCTURE_TAGS={"station", "dock", "airstrip", "helipad", "ground"},  -- Must match with MC
+	INTERFACE_TAGS={["pump"]=0, ["mineral"]=1},  -- Must match with MC
 }
+---@param binnet BinnetBase
+Variants.general.binnetBase:registerPacketReader(20, function(binnet, reader, packetId)
+	binnet:send(packetId)
+end)
+---@param binnet BinnetBase
+Variants.general.binnetBase:registerPacketWriter(20, function(binnet, writer)
+	local interfaceInfo = InterfaceSystem.data.interfaceVehicles[binnet.vehicleId]
+	local locationConfig = LocationSystem.locations[interfaceInfo.location]
+
+	---@type table<string, {general:boolean?,pump:boolean?,mineral:boolean?,recipe:LocationRecipe?}>
+	local infrastructures = {}
+	local infrastructureOrder = shallowCopy(Variants.general.INFRASTRUCTURE_TAGS, {})
+
+	for _, interfaceZone in pairs(locationConfig.interfaces) do
+		for _, infraTag in ipairs(Variants.general.INFRASTRUCTURE_TAGS) do
+			if interfaceZone.tags[infraTag] then
+				local infra = infrastructures[infraTag] or {}
+				infrastructures[infraTag] = infra
+				infra[interfaceZone.tags.interface_type] = true
+			end
+		end
+	end
+	for _, recipe in ipairs(locationConfig.production) do
+		infrastructures[recipe.name] = {recipe=recipe}
+		table.insert(infrastructureOrder, recipe.name)
+	end
+
+	for _, infraName in ipairs(infrastructureOrder) do
+		local infra = infrastructures[infraName]
+		if infra ~= nil then
+			writer:writeString(infraName)
+			local interfacesByte = 0
+			for interfaceTag, i in pairs(Variants.general.INTERFACE_TAGS) do
+				if infra[interfaceTag] then
+					interfacesByte = interfacesByte | (1<<i)
+				end
+			end
+			if infra.recipe then
+				interfacesByte = interfacesByte | (1<<7)
+			end
+			writer:writeUByte(interfacesByte)
+			if infra.recipe then
+				writer:writeUByte(0)
+				local sizeByteIndex = #writer
+				for producibleConfig, amount in pairs(infra.recipe.consumes) do
+					writer:writeString(producibleConfig.name)
+					writer:writeCustom(-amount/infra.recipe.rate*60*60, -2^24, 2^24, 0.01)
+					writer[sizeByteIndex] = writer[sizeByteIndex] + 1
+				end
+				for producibleConfig, amount in pairs(infra.recipe.produces) do
+					writer:writeString(producibleConfig.name)
+					writer:writeCustom(amount/infra.recipe.rate*60*60, -2^24, 2^24, 0.01)
+					writer[sizeByteIndex] = writer[sizeByteIndex] + 1
+				end
+			end
+		end
+	end
+end)
 
 ---@class LoadedInterface_PumpInterface : LoadedInterface
 ---@field selectedProducibleName string?
 ---@field autoSelectCooldown number?
 ---@field pumpAmount number
 ---@field pumpMoney number
----@type InterfaceVariant
+---@class InterfaceVariantPump : InterfaceVariant
 Variants.pump = {
 	vehicleName="vehicle_pump",
 	offset=matrix.translation(0, -1.1, -0.25),
