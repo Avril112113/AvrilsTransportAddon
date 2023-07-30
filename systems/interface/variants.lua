@@ -17,6 +17,7 @@
 
 local Variants = InterfaceSystem.interfaceVariants
 
+--- `LocationConfig.ACCESS_TYPE_TAGS` Must match with MC
 ---@class InterfaceVariantGeneral : InterfaceVariant
 Variants.general = {
 	vehicleName="vehicle_interface",
@@ -25,7 +26,6 @@ Variants.general = {
 	binnetReadChannels=3,
 	binnetWriteChannels=9,
 	binnetBase=InterfaceSystem.BinnetBase:new(),
-	INFRASTRUCTURE_TAGS={"station", "dock", "airstrip", "helipad", "ground"},  -- Must match with MC
 	INTERFACE_TAGS={["pump"]=0, ["mineral"]=1},  -- Must match with MC
 }
 ---@param binnet BinnetBase
@@ -39,10 +39,10 @@ Variants.general.binnetBase:registerPacketWriter(20, function(binnet, writer)
 
 	---@type table<string, {general:boolean?,pump:boolean?,mineral:boolean?,recipe:LocationRecipe?}>
 	local infrastructures = {}
-	local infrastructureOrder = shallowCopy(Variants.general.INFRASTRUCTURE_TAGS, {})
+	local infrastructureOrder = shallowCopy(LocationConfig.ACCESS_TYPE_TAGS, {})
 
 	for _, interfaceZone in pairs(locationConfig.interfaces) do
-		for _, infraTag in ipairs(Variants.general.INFRASTRUCTURE_TAGS) do
+		for _, infraTag in ipairs(LocationConfig.ACCESS_TYPE_TAGS) do
 			if interfaceZone.tags[infraTag] then
 				local infra = infrastructures[infraTag] or {}
 				infrastructures[infraTag] = infra
@@ -250,3 +250,20 @@ Variants.pump.binnetBase:registerPacketWriter(21, function(binnet, writer)
 	writer:writeCustom(interface.pumpAmount, -2^24, 2^24, 0.01)
 	writer:writeCustom(interface.pumpMoney, -2^24, 2^24, 0.01)
 end)
+
+
+---@class LoadedInterface_PumpInterface : LoadedInterface
+---@field selectedProducibleName string?
+---@field autoSelectCooldown number?
+---@field pumpAmount number
+---@field pumpMoney number
+---@class InterfaceVariantMineral : InterfaceVariant
+Variants.mineral = {
+	vehicleName="vehicle_mineral",
+	offset=matrix.translation(0, -1.1, -0.25),
+	range=15,
+	binnetReadChannels=3,
+	binnetWriteChannels=9,
+	binnetBase=InterfaceSystem.BinnetBase:new(),
+	updateRate=60,
+}

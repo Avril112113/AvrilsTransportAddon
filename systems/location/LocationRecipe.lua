@@ -11,7 +11,7 @@ RecipeData = {}
 function RecipeData.new(name)
 	local self = shallowCopy(RecipeData, {
 		name=name,
-		rate=60/DT,
+		rate=60/DT,  -- Default: every second.
 		bulk=true,
 		consumes={},
 		produces={},

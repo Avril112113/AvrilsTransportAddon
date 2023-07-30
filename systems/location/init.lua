@@ -45,6 +45,10 @@ SystemManager.addEventHandler(LocationSystem, "onCreate", 100,
 				---@type table<string, integer>
 				locationData.productionTicks = {}
 			end
+			if locationData.vehicles == nil then
+				---@type table<integer, {type:string,[any]:any}>
+				locationData.vehicles = {}
+			end
 		end
 
 		for name, locationConfig in pairs(LocationSystem.locations) do
@@ -56,6 +60,7 @@ SystemManager.addEventHandler(LocationSystem, "onCreate", 100,
 		end
 
 		if is_world_create then
+			LocationSystem.spawnVehicles()
 			LocationSystem.spawnInterfaces()
 		end
 
@@ -331,7 +336,21 @@ end
 
 function LocationSystem.spawnInterfaces()
 	for _, locationConfig in pairs(LocationSystem.locations) do
-		locationConfig:createInterfaces()
+		locationConfig:spawnInterfaces()
+	end
+end
+function LocationSystem.despawnInterfaces()
+	InterfaceSystem.despawnAllInterfaces()
+end
+
+function LocationSystem.spawnVehicles()
+	for _, locationConfig in pairs(LocationSystem.locations) do
+		locationConfig:spawnVehicles()
+	end
+end
+function LocationSystem.despawnVehicles()
+	for _, locationConfig in pairs(LocationSystem.locations) do
+		locationConfig:despawnVehicles()
 	end
 end
 
@@ -360,4 +379,5 @@ require("systems.location.Producibles")
 ---@require_folder_finish
 
 require("config.recipes")
+require("config.locationDefaultVehicles")
 require("config.locations")

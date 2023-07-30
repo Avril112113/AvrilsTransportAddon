@@ -10,12 +10,24 @@
 ---@field totalProduction table<string,number>  # per second
 ---@field storageLimit table<ProducibleConfig,number>
 ---@field storageTypeLimit table<ProducibleType,number>
+---@field locationVehicles table<string,{vehicleName:string,offset:SWMatrix}>
 LocationConfig = {}
+LocationConfig.DEFAULT_VEHICLES = {}
+LocationConfig.ACCESS_TYPE_TAGS = {  -- If adjusting, check note at `Variants.general`
+	"station", "dock", "ground", "airstrip", "helipad",
+}
 
 ---@param name string
 ---@return LocationConfig
 function LocationConfig.new(name)
-	return shallowCopy(LocationConfig, {name=name, production={}, totalProduction={}, storageLimit={}, storageTypeLimit={}})
+	return shallowCopy(LocationConfig, {
+		name=name,
+		production={},
+		totalProduction={},
+		storageLimit={},
+		storageTypeLimit={},
+		locationVehicles={},
+	})
 end
 
 ---@param recipe LocationRecipe
@@ -55,6 +67,14 @@ function LocationConfig:setAllStorageTypeLimit(enabled)
 	for _, producibleType in pairs(PRODUCIBLE_TYPES) do
 		self.storageTypeLimit[producibleType] = value
 	end
+	return self
+end
+
+---@param id string
+---@param vehicleName string
+---@param offset SWMatrix
+function LocationConfig:setLocationVehicle(id, vehicleName, offset)
+	self.locationVehicles[id] = {vehicleName=vehicleName, offset=offset}
 	return self
 end
 
@@ -107,10 +127,54 @@ function LocationConfig:isInArea(transform)
 	return false
 end
 
-function LocationConfig:createInterfaces()
+function LocationConfig:spawnInterfaces()
 	for _, interfaceZone in pairs(self.interfaces) do
 		local interfaceType = interfaceZone.tags.interface_type
 		---@cast interfaceType InterfaceVariantName
 		InterfaceSystem.createInterfaceVehicle(interfaceZone.transform, self, interfaceType)
+	end
+end
+
+local _ZONE_DEFAULT_HEIGHT = 5
+function LocationConfig:spawnVehicles()
+	local locationData = LocationSystem.data.locations[self.name]
+
+	for _, zone in pairs(self.mineralStations) do
+		local zoneAccessType
+		for _, accessType in pairs(LocationConfig.ACCESS_TYPE_TAGS) do
+			if zone.tags[accessType] then
+				zoneAccessType = accessType
+				break
+			end
+		end
+		if zone.tags.mineral_loader_y ~= nil then
+			local vehicleInfo = self.locationVehicles[zoneAccessType.."_mineral_load"] or LocationConfig.DEFAULT_VEHICLES[zoneAccessType.."_mineral_load"]
+			if vehicleInfo == nil then
+				log_warn(("Location '%s' is missing vehicle '%s'"):format(self.name, zoneAccessType.."_mineral_unload"))
+			else
+				local tagYOffset = tonumber(zone.tags.mineral_loader_y) or 0
+				local transfrom = matrix.multiply(matrix.multiply(zone.transform, vehicleInfo.offset), matrix.translation(0, -_ZONE_DEFAULT_HEIGHT + tagYOffset, 0))
+				local vehicleId = VehicleManager.spawnStaticVehicle(InterfaceSystem, vehicleInfo.vehicleName, transfrom)
+				locationData.vehicles[vehicleId] = {type="loader"}
+			end
+		end
+		if zone.tags.mineral_unloader_y ~= nil then
+			local vehicleInfo = self.locationVehicles[zoneAccessType.."_mineral_unload"] or LocationConfig.DEFAULT_VEHICLES[zoneAccessType.."_mineral_unload"]
+			if vehicleInfo == nil then
+				log_warn(("Location '%s' is missing vehicle '%s'"):format(self.name, zoneAccessType.."_mineral_unload"))
+			else
+				local tagYOffset = tonumber(zone.tags.mineral_unloader_y) or 0
+				local transfrom = matrix.multiply(matrix.multiply(zone.transform, vehicleInfo.offset), matrix.translation(0, -_ZONE_DEFAULT_HEIGHT + tagYOffset, 0))
+				local vehicleId = VehicleManager.spawnStaticVehicle(InterfaceSystem, vehicleInfo.vehicleName, transfrom)
+				locationData.vehicles[vehicleId] = {type="unloader"}
+			end
+		end
+	end
+end
+function LocationConfig:despawnVehicles()
+	local locationData = LocationSystem.data.locations[self.name]
+	for vehicleId, vehicleData in pairs(locationData.vehicles) do
+		server.despawnVehicle(vehicleId, true)
+		locationData.vehicles[vehicleId] = nil
 	end
 end
