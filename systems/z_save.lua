@@ -26,13 +26,16 @@ Command.new("savedata")
 		local pathParts = {}
 		if path ~= nil and #path > 0 then
 			for part in path:gmatch("[^.]+") do
+				if part:find("^%d+$") then
+					part = tonumber(part)
+				end
 				table.insert(pathParts, part)
 			end
 		end
 		local obj = g_savedata
 		local objPathParts = {"g_savedata"}
 		for _, part in ipairs(pathParts) do
-			table.insert(objPathParts, part)
+			table.insert(objPathParts, tostring(part))
 			obj = obj[part]
 			if obj == nil then
 				break
