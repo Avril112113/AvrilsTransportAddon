@@ -1,4 +1,5 @@
 Producibles = {}
+---@type table<string,ProducibleConfig>
 Producibles.byName = {}
 Producibles.ofType = {}
 Producibles.enums = {fluid={}, mineral={}}

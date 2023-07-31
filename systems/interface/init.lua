@@ -24,7 +24,7 @@ SystemManager.addEventHandler(InterfaceSystem, "onCreate", 100,
 		InterfaceSystem.data = SystemManager.getSaveData(InterfaceSystem)
 
 		if InterfaceSystem.data.interfaceVehicles == nil then
-			---@type table<integer, {type:InterfaceVariantName,location:string}>
+			---@type table<integer, {type:InterfaceVariantName,location:string,assignedVehicles:table<string, integer[]>}>
 			InterfaceSystem.data.interfaceVehicles = {}
 		end
 
@@ -109,7 +109,8 @@ end
 ---@param transform SWMatrix
 ---@param locationConfig LocationConfig
 ---@param interfaceVariantName InterfaceVariantName
-function InterfaceSystem.createInterfaceVehicle(transform, locationConfig, interfaceVariantName)
+---@param assignedVehicles table<string, integer[]>?
+function InterfaceSystem.createInterfaceVehicle(transform, locationConfig, interfaceVariantName, assignedVehicles)
 	local interfaceVariant = InterfaceSystem.interfaceVariants[interfaceVariantName]
 	if interfaceVariant == nil then
 		log_error(("Invalid interface type '%s' at location %s"):format(interfaceVariantName, locationConfig.name))
@@ -120,6 +121,7 @@ function InterfaceSystem.createInterfaceVehicle(transform, locationConfig, inter
 	InterfaceSystem.data.interfaceVehicles[vehicleId] = {
 		type=interfaceVariantName,
 		location=locationConfig.name,
+		assignedVehicles=assignedVehicles or {},
 	}
 	return vehicleId
 end

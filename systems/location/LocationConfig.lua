@@ -89,6 +89,8 @@ function LocationConfig:processZones()
 	---@type LocationConfigZone[]
 	self.interfaces = {}
 	---@type LocationConfigZone[]
+	local mineralInterfaces = {}
+	---@type LocationConfigZone[]
 	self.mineralStations = {}  -- Includes any type of mineral loading/unloading area!
 	---@type LocationConfigZone[]
 	self.containerAreas = {}
@@ -105,6 +107,9 @@ function LocationConfig:processZones()
 			self.position.z = self.position.z + zone.transform[15]
 		elseif tags.interface then
 			table.insert(self.interfaces, {name=zone.name, transform=zone.transform, size=zone.size, tags=tags})
+			if tags.interface_type == "mineral" then
+				table.insert(mineralInterfaces, self.interfaces[#self.interfaces])
+			end
 		elseif tags.mineral then
 			table.insert(self.mineralStations, {name=zone.name, transform=zone.transform, size=zone.size, tags=tags})
 		elseif tags.container then
@@ -114,6 +119,23 @@ function LocationConfig:processZones()
 	self.position.x = self.position.x / #self.areas
 	self.position.y = self.position.y / #self.areas
 	self.position.z = self.position.z / #self.areas
+
+	self.interfaceAssignedZones = {}
+	for _, mineralZone in pairs(self.mineralStations) do
+		local closestInterfaceZone
+		local closestDist = math.huge
+		for _, interfaceZone in pairs(mineralInterfaces) do
+			local dist = matrix.distance(mineralZone.transform, interfaceZone.transform)
+			if dist < closestDist then
+				closestInterfaceZone = interfaceZone
+				closestDist = dist
+			end
+		end
+		local assignedZones = self.interfaceAssignedZones[closestInterfaceZone] or {}
+		self.interfaceAssignedZones[closestInterfaceZone] = assignedZones
+		table.insert(assignedZones, mineralZone)
+	end
+
 	return true
 end
 
@@ -131,13 +153,26 @@ function LocationConfig:spawnInterfaces()
 	for _, interfaceZone in pairs(self.interfaces) do
 		local interfaceType = interfaceZone.tags.interface_type
 		---@cast interfaceType InterfaceVariantName
-		InterfaceSystem.createInterfaceVehicle(interfaceZone.transform, self, interfaceType)
+
+		local assignedZones = self.interfaceAssignedZones[interfaceZone]
+		---@type table<string, integer[]>
+		local assignedVehicles = {}
+		if assignedZones ~= nil then
+			for _, zone in pairs(assignedZones) do
+				simpleDeepCopy(self.zoneSpawnedVehicles[zone], assignedVehicles)
+			end
+		end
+
+		-- FIXME: If we respawn location vehicles, assignedVehicles will point to non-existent vehicles.
+		InterfaceSystem.createInterfaceVehicle(interfaceZone.transform, self, interfaceType, assignedVehicles)
 	end
 end
 
 local _ZONE_DEFAULT_HEIGHT = 5
 function LocationConfig:spawnVehicles()
 	local locationData = LocationSystem.data.locations[self.name]
+	---@type table<LocationConfigZone, table<string, integer[]>>
+	self.zoneSpawnedVehicles = {}
 
 	for _, zone in pairs(self.mineralStations) do
 		local zoneAccessType
@@ -147,6 +182,8 @@ function LocationConfig:spawnVehicles()
 				break
 			end
 		end
+		local spawnedVehicles = self.zoneSpawnedVehicles[zone] or {}
+		self.zoneSpawnedVehicles[zone] = spawnedVehicles
 		if zone.tags.mineral_loader_y ~= nil then
 			local vehicleInfo = self.locationVehicles[zoneAccessType.."_mineral_load"] or LocationConfig.DEFAULT_VEHICLES[zoneAccessType.."_mineral_load"]
 			if vehicleInfo == nil then
@@ -155,7 +192,9 @@ function LocationConfig:spawnVehicles()
 				local tagYOffset = tonumber(zone.tags.mineral_loader_y) or 0
 				local transfrom = matrix.multiply(matrix.multiply(zone.transform, vehicleInfo.offset), matrix.translation(0, -_ZONE_DEFAULT_HEIGHT + tagYOffset, 0))
 				local vehicleId = VehicleManager.spawnStaticVehicle(InterfaceSystem, vehicleInfo.vehicleName, transfrom)
-				locationData.vehicles[vehicleId] = {type="loader"}
+				locationData.vehicles[vehicleId] = {type="mineral_loader"}
+				spawnedVehicles.mineral_loaders = spawnedVehicles.mineral_loaders or {}
+				table.insert(spawnedVehicles.mineral_loaders, vehicleId)
 			end
 		end
 		if zone.tags.mineral_unloader_y ~= nil then
@@ -166,7 +205,9 @@ function LocationConfig:spawnVehicles()
 				local tagYOffset = tonumber(zone.tags.mineral_unloader_y) or 0
 				local transfrom = matrix.multiply(matrix.multiply(zone.transform, vehicleInfo.offset), matrix.translation(0, -_ZONE_DEFAULT_HEIGHT + tagYOffset, 0))
 				local vehicleId = VehicleManager.spawnStaticVehicle(InterfaceSystem, vehicleInfo.vehicleName, transfrom)
-				locationData.vehicles[vehicleId] = {type="unloader"}
+				locationData.vehicles[vehicleId] = {type="mineral_unloader"}
+				spawnedVehicles.mineral_unloaders = spawnedVehicles.mineral_unloaders or {}
+				table.insert(spawnedVehicles.mineral_unloaders, vehicleId)
 			end
 		end
 	end

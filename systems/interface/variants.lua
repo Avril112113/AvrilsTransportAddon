@@ -90,8 +90,8 @@ end)
 ---@class LoadedInterface_PumpInterface : LoadedInterface
 ---@field selectedProducibleName string?
 ---@field autoSelectCooldown number?
----@field pumpAmount number
----@field pumpMoney number
+---@field transferAmount number
+---@field transferMoney number
 ---@class InterfaceVariantPump : InterfaceVariant
 Variants.pump = {
 	vehicleName="vehicle_pump",
@@ -105,8 +105,8 @@ Variants.pump = {
 		---@cast interface LoadedInterface_PumpInterface
 		interface.selectedProducibleName = nil
 		interface.autoSelectCooldown = 0
-		interface.pumpAmount = 0
-		interface.pumpMoney = 0
+		interface.transferAmount = 0
+		interface.transferMoney = 0
 	end,
 	update=function(self, vehicleId, interface)
 		---@cast interface LoadedInterface_PumpInterface
@@ -128,7 +128,7 @@ Variants.pump = {
 		local tankIn, ok = server.getVehicleTank(vehicleId, "fluid_in")  -- Into location
 		if not ok then return end
 
-		local prevPumpAmount = interface.pumpAmount
+		local prevTransferAmount = interface.transferAmount
 
 		for fluidEnum, amount in pairs(tankIn.values) do
 			if amount > 0 then
@@ -137,15 +137,15 @@ Variants.pump = {
 					if interface.selectedProducibleName ~= producibleConfig.name then
 						if interface.autoSelectCooldown <= 0 then
 							interface.selectedProducibleName = producibleConfig.name
-							interface.pumpAmount = 0
-							interface.pumpMoney = 0
+							interface.transferAmount = 0
+							interface.transferMoney = 0
 							interface.binnet:send(20)
 						end
 					end
 					local remainder = LocationSystem.storageAdd(locationConfig, producibleConfig, amount, "partial")
 					server.setVehicleTank(vehicleId, "fluid_in", remainder, fluidEnum)
-					interface.pumpAmount = interface.pumpAmount - (amount-remainder)
-					-- FIXME: We are only getting half the fluid? https://geometa.co.uk/support/stormworks/20863/
+					interface.transferAmount = interface.transferAmount - (amount-remainder)
+					-- FIXME: We are losing some resources https://geometa.co.uk/support/stormworks/20863/
 					-- TODO: Give company money.
 				else
 					-- TODO: Warn the player about invalid fluid...
@@ -156,17 +156,19 @@ Variants.pump = {
 
 		local selectedProducible = Producibles.byName[interface.selectedProducibleName]
 		if selectedProducible ~= nil and interface.selectedTankAmount ~= nil then
-			local consumedFluid = interface.selectedTankAmount - tankOut.values[selectedProducible.fluidType]
-			interface.pumpAmount = interface.pumpAmount + consumedFluid
-			-- TODO: Consume company money. We are accepting negative money as a possibility.
+			local consumed = interface.selectedTankAmount - tankOut.values[selectedProducible.fluidType]
+			interface.transferAmount = interface.transferAmount + consumed
+			-- TODO: Consume company money.
 		end
 
 		local setSelectedTankAmount = false
 		for fluidEnum, amount in pairs(tankOut.values) do
 			if selectedProducible ~= nil and fluidEnum == selectedProducible.fluidType then
-				-- FIXME: This is just completley broken? Getting infinite fluid.
 				-- TODO: Replace `companyData.money >= 0` with affordable amount.
-				local addAmount = math.min(tankOut.capacity-amount, companyData.money >= 0 and math.huge or 0)
+				local addAmount = math.min(
+					tankOut.capacity-amount,
+					companyData.money >= 0 and math.huge or 0
+				)
 				addAmount = LocationSystem.storageRemove(locationConfig, selectedProducible, addAmount, "partial")
 				server.setVehicleTank(vehicleId, "fluid_out", amount + addAmount, fluidEnum)
 				interface.selectedTankAmount = amount + addAmount
@@ -176,10 +178,9 @@ Variants.pump = {
 				local tankProducible = Producibles.getByEnum("fluid", fluidEnum, true)
 				if tankProducible ~= nil then
 					LocationSystem.storageAdd(locationConfig, tankProducible, amount, "force")  -- Should we be forcing it?
-					-- TODO: Refund company for fluid.
 				else
 					-- TODO: Do something :/
-					log_info(("Pump interface got fluid that isn't a refundable producible %s %sL"):format(fluidEnum, amount))
+					log_info(("Pump interface got producible that isn't valid %s %sL"):format(fluidEnum, amount))
 				end
 			end
 		end
@@ -193,7 +194,7 @@ Variants.pump = {
 			interface.locked = false
 		end
 
-		if interface.pumpAmount ~= prevPumpAmount then
+		if interface.transferAmount ~= prevTransferAmount then
 			interface.binnet:send(21)
 		end
 
@@ -216,8 +217,8 @@ Variants.pump.binnetBase:registerPacketReader(20, function(binnet, reader, packe
 
 	interface.selectedProducibleName = #reader > 0 and reader:readString() or nil
 	interface.autoSelectCooldown = 180
-	interface.pumpAmount = 0
-	interface.pumpMoney = 0
+	interface.transferAmount = 0
+	interface.transferMoney = 0
 end)
 ---@param binnet BinnetBase
 Variants.pump.binnetBase:registerPacketWriter(20, function(binnet, writer)
@@ -235,6 +236,7 @@ Variants.pump.binnetBase:registerPacketWriter(20, function(binnet, writer)
 		writer:writeString(interface.selectedProducibleName)
 	end
 end)
+--- Send transferred amount and money.
 ---@param binnet BinnetBase
 Variants.pump.binnetBase:registerPacketWriter(21, function(binnet, writer)
 	local interface = InterfaceSystem.loadedInterfaces[binnet.vehicleId]
@@ -247,16 +249,20 @@ Variants.pump.binnetBase:registerPacketWriter(21, function(binnet, writer)
 		return
 	end
 
-	writer:writeCustom(interface.pumpAmount, -2^24, 2^24, 0.01)
-	writer:writeCustom(interface.pumpMoney, -2^24, 2^24, 0.01)
+	writer:writeCustom(interface.transferAmount, -2^24, 2^24, 0.01)
+	writer:writeCustom(interface.transferMoney, -2^24, 2^24, 0.01)
 end)
 
 
----@class LoadedInterface_PumpInterface : LoadedInterface
+---@class LoadedInterface_MineralInterface : LoadedInterface
 ---@field selectedProducibleName string?
 ---@field autoSelectCooldown number?
----@field pumpAmount number
----@field pumpMoney number
+---@field transferState boolean # true to load minerals
+---@field transferAmount number
+---@field transferMoney number
+---@field loaderSetAmounts table<integer,number>
+---@field mineralLoaders integer[]
+---@field mineralUnloaders integer[]
 ---@class InterfaceVariantMineral : InterfaceVariant
 Variants.mineral = {
 	vehicleName="vehicle_mineral",
@@ -266,4 +272,180 @@ Variants.mineral = {
 	binnetWriteChannels=9,
 	binnetBase=InterfaceSystem.BinnetBase:new(),
 	updateRate=60,
+	setup=function(self, vehicleId, interface)
+		---@cast interface LoadedInterface_MineralInterface
+		interface.selectedProducibleName = nil
+		interface.transferAmount = 0
+		interface.transferMoney = 0
+
+		interface.loaderSetAmounts = {}
+
+		local interfaceData = InterfaceSystem.data.interfaceVehicles[vehicleId]
+		interface.mineralLoaders = interfaceData.assignedVehicles.mineral_loaders or {}
+		interface.mineralUnloaders = interfaceData.assignedVehicles.mineral_unloaders or {}
+	end,
+	update=function(self, vehicleId, interface)
+		---@cast interface LoadedInterface_MineralInterface
+
+		if TickManager.sessionTick % self.updateRate ~= 0 then
+			return
+		end
+
+		local interfaceInfo = InterfaceSystem.data.interfaceVehicles[vehicleId]
+		local locationConfig = LocationSystem.locations[interfaceInfo.location]
+
+		local companyData = CompanySystem.getCompany(interface.company)
+		if companyData == nil then
+			return
+		end
+
+		local prevTransferAmount = interface.transferAmount
+
+		for _, unloaderVehicleId in pairs(interface.mineralUnloaders) do
+			local hopper, ok = server.getVehicleHopper(unloaderVehicleId, "mineral_unload")
+			if ok then
+				for mineralEnum, amount in pairs(hopper.values) do
+					if amount > 0 then
+						local producibleConfig = Producibles.getByEnum("mineral", mineralEnum, true)
+						if producibleConfig ~= nil then
+							if interface.selectedProducibleName ~= producibleConfig.name then
+								interface.selectedProducibleName = producibleConfig.name
+								interface.transferAmount = 0
+								interface.transferMoney = 0
+								interface.binnet:send(20)
+							end
+
+							local remainder = LocationSystem.storageAdd(locationConfig, producibleConfig, amount, "partial")
+							server.setVehicleHopper(unloaderVehicleId, "mineral_unload", remainder, mineralEnum)
+							local transferredAmount = amount-remainder
+							interface.transferAmount = interface.transferAmount + transferredAmount
+							-- FIXME: We are losing some resources https://geometa.co.uk/support/stormworks/20863/
+							-- TODO: Give company money
+						else
+							-- TODO: Warn the player about invalid mineral...
+							server.setVehicleHopper(unloaderVehicleId, "mineral_unload", 0, mineralEnum)
+						end
+					end
+				end
+			end
+		end
+
+		local selectedProducible = Producibles.byName[interface.selectedProducibleName]
+		if selectedProducible ~= nil then
+			for loaderVehicleId, setAmount in pairs(interface.loaderSetAmounts) do
+				local hopper, ok = server.getVehicleHopper(loaderVehicleId, "mineral_load")
+				if ok then
+					local consumed = setAmount - hopper.values[selectedProducible.mineralType]
+					interface.transferAmount = interface.transferAmount + consumed
+					-- FIXME: We are creating free some resources, probably due to https://geometa.co.uk/support/stormworks/20863/
+				end
+			end
+		end
+
+		local LOADER_MINERAL_LIMIT = 45
+		for _, loaderVehicleId in pairs(interface.mineralLoaders) do
+			local setSelectedAmount = false
+			local hopper, ok = server.getVehicleHopper(loaderVehicleId, "mineral_load")
+			if ok then
+				for mineralEnum, amount in pairs(hopper.values) do
+					if interface.transferState and selectedProducible ~= nil and mineralEnum == selectedProducible.mineralType then
+						-- TODO: Replace `companyData.money >= 0` with affordable amount.
+						local addAmount = math.min(
+							LOADER_MINERAL_LIMIT-amount,
+							companyData.money >= 0 and math.huge or 0,
+							math.floor(LocationSystem.storageFreeSpaceFor(locationConfig, selectedProducible))
+						)
+						addAmount = LocationSystem.storageRemove(locationConfig, selectedProducible, addAmount, "partial")
+						server.setVehicleHopper(loaderVehicleId, "mineral_load", amount + addAmount, mineralEnum)
+						interface.loaderSetAmounts[loaderVehicleId] = amount + addAmount
+						setSelectedAmount = true
+					elseif amount ~= 0 then
+						server.setVehicleHopper(loaderVehicleId, "mineral_load", 0, mineralEnum)
+						local tankProducible = Producibles.getByEnum("mineral", mineralEnum, true)
+						if tankProducible ~= nil then
+							LocationSystem.storageAdd(locationConfig, tankProducible, amount, "force")  -- Should we be forcing it?
+						else
+							-- TODO: Do something :/
+							log_info(("Mineral interface loader got producible that isn't valid %s %sL"):format(mineralEnum, amount))
+						end
+					end
+				end
+			end
+			if not setSelectedAmount then
+				interface.loaderSetAmounts[loaderVehicleId] = nil
+			end
+		end
+
+		if interface.selectedProducibleName ~= nil then
+			interface.locked = true
+		end
+
+		if interface.transferAmount ~= prevTransferAmount then
+			interface.binnet:send(21)
+		end
+	end,
 }
+---@param binnet BinnetBase
+Variants.mineral.binnetBase:registerPacketReader(20, function(binnet, reader, packetId)
+	local interface = InterfaceSystem.loadedInterfaces[binnet.vehicleId]
+	---@cast interface LoadedInterface_MineralInterface
+	if interface.company == nil then
+		return
+	end
+	local companyData = CompanySystem.getCompany(interface.company)
+	if companyData == nil then
+		return
+	end
+
+	interface.selectedProducibleName = #reader > 0 and reader:readString() or nil
+	interface.transferAmount = 0
+	interface.transferMoney = 0
+end)
+---@param binnet BinnetBase
+Variants.mineral.binnetBase:registerPacketWriter(20, function(binnet, writer)
+	local interface = InterfaceSystem.loadedInterfaces[binnet.vehicleId]
+	---@cast interface LoadedInterface_MineralInterface
+	if interface.company == nil then
+		return
+	end
+	local companyData = CompanySystem.getCompany(interface.company)
+	if companyData == nil then
+		return
+	end
+
+	if interface.selectedProducibleName then
+		writer:writeString(interface.selectedProducibleName)
+	end
+end)
+--- Send transferred amount and money.
+---@param binnet BinnetBase
+Variants.mineral.binnetBase:registerPacketWriter(21, function(binnet, writer)
+	local interface = InterfaceSystem.loadedInterfaces[binnet.vehicleId]
+	---@cast interface LoadedInterface_MineralInterface
+	if interface.company == nil then
+		return
+	end
+	local companyData = CompanySystem.getCompany(interface.company)
+	if companyData == nil then
+		return
+	end
+
+	writer:writeCustom(interface.transferAmount, -2^24, 2^24, 0.01)
+	writer:writeCustom(interface.transferMoney, -2^24, 2^24, 0.01)
+end)
+--- Transfer state from interface
+---@param binnet BinnetBase
+Variants.mineral.binnetBase:registerPacketReader(22, function(binnet, writer)
+	local interface = InterfaceSystem.loadedInterfaces[binnet.vehicleId]
+	---@cast interface LoadedInterface_MineralInterface
+	if interface.company == nil then
+		interface.transferState = false
+		return
+	end
+	local companyData = CompanySystem.getCompany(interface.company)
+	if companyData == nil then
+		interface.transferState = false
+		return
+	end
+	interface.transferState = writer:readUByte() > 0
+end)

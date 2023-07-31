@@ -79,6 +79,24 @@ function shallowCopy(source, dest)
 	return dest
 end
 
+---@generic T : table?
+---@param source T
+---@param dest T
+---@return T
+function simpleDeepCopy(source, dest)
+	if source == nil then
+		return nil
+	end
+	dest = dest or {}
+	for i, v in pairs(source) do
+		if type(v) == "table" then
+			v = simpleDeepCopy(v, dest[i] or {})
+		end
+		dest[i] = v
+	end
+	return dest
+end
+
 local TRUTHY_VALUES = {t=true, tr=true, tru=true, ["true"]=true, y=true, ye=true, yes=true}
 ---@param s string|nil
 function arg_truthy(s)
