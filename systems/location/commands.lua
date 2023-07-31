@@ -133,7 +133,7 @@ Command.new("location")
 						end
 						local storage = LocationSystem.storageAll(locationConfig)
 						for producibleName, amount in pairs(storage) do
-							storage[producibleName] = 0
+							LocationSystem.storageSet(locationConfig, Producibles.get(producibleName), 0, "force")
 						end
 						return 0, ("%s storage has been cleared."):format(locationConfig.name)
 					end)
