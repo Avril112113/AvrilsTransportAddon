@@ -89,9 +89,11 @@ end)
 
 ---@class LoadedInterface_PumpInterface : LoadedInterface
 ---@field selectedProducibleName string?
----@field autoSelectCooldown number?
 ---@field transferAmount number
 ---@field transferMoney number
+---@field receivedFreeAmount number
+---@field consumedFreeAmount number
+---@field outTankFreeAmount number
 ---@class InterfaceVariantPump : InterfaceVariant
 Variants.pump = {
 	vehicleName="vehicle_pump",
@@ -101,12 +103,17 @@ Variants.pump = {
 	binnetWriteChannels=9,
 	binnetBase=InterfaceSystem.BinnetBase:new(),
 	updateRate=60,
+	transferFreeAmount = 5.56,  -- How much fluid is lost when receiving fluid.
+	transferLostAmount = 3.8461685181,  -- How much fluid is lost when giving a vehicle fluid.
+	respawnOnDeselect = true,  -- To clear the fluid in the pump vehicle to prevent contamination
 	setup=function(self, vehicleId, interface)
 		---@cast interface LoadedInterface_PumpInterface
 		interface.selectedProducibleName = nil
-		interface.autoSelectCooldown = 0
 		interface.transferAmount = 0
 		interface.transferMoney = 0
+		interface.receivedFreeAmount = Variants.pump.transferFreeAmount
+		interface.consumedFreeAmount = Variants.pump.transferLostAmount
+		interface.outTankFreeAmount = Variants.pump.transferLostAmount
 	end,
 	update=function(self, vehicleId, interface)
 		---@cast interface LoadedInterface_PumpInterface
@@ -135,14 +142,16 @@ Variants.pump = {
 				local producibleConfig = Producibles.getByEnum("fluid", fluidEnum, true)
 				if producibleConfig ~= nil then
 					if interface.selectedProducibleName ~= producibleConfig.name then
-						if interface.autoSelectCooldown <= 0 then
-							interface.selectedProducibleName = producibleConfig.name
-							interface.transferAmount = 0
-							interface.transferMoney = 0
-							interface.binnet:send(20)
-						end
+						interface.selectedProducibleName = producibleConfig.name
+						interface.transferAmount = 0
+						interface.transferMoney = 0
+						interface.binnet:send(20)
 					end
-					local remainder = LocationSystem.storageAdd(locationConfig, producibleConfig, amount, "partial")
+					local freeAmount = math.min(interface.receivedFreeAmount, amount*15)
+					amount = amount + freeAmount
+					interface.receivedFreeAmount = interface.receivedFreeAmount - freeAmount
+					-- Due to the interface being respawned when deselecting a fluid, we "force" this fluid into the storage.
+					local remainder = LocationSystem.storageAdd(locationConfig, producibleConfig, amount, "force")
 					server.setVehicleTank(vehicleId, "fluid_in", remainder, fluidEnum)
 					interface.transferAmount = interface.transferAmount - (amount-remainder)
 					-- FIXME: We are losing some resources https://geometa.co.uk/support/stormworks/20863/
@@ -157,6 +166,11 @@ Variants.pump = {
 		local selectedProducible = Producibles.byName[interface.selectedProducibleName]
 		if selectedProducible ~= nil and interface.selectedTankAmount ~= nil then
 			local consumed = interface.selectedTankAmount - tankOut.values[selectedProducible.fluidType]
+			if interface.consumedFreeAmount > 0 then
+				local freeConsumed = math.min(interface.consumedFreeAmount, consumed)
+				interface.consumedFreeAmount = interface.consumedFreeAmount - freeConsumed
+				consumed = consumed - freeConsumed
+			end
 			interface.transferAmount = interface.transferAmount + consumed
 			-- TODO: Consume company money.
 		end
@@ -166,10 +180,13 @@ Variants.pump = {
 			if selectedProducible ~= nil and fluidEnum == selectedProducible.fluidType then
 				-- TODO: Replace `companyData.money >= 0` with affordable amount.
 				local addAmount = math.min(
-					tankOut.capacity-amount,
+					tankOut.capacity - (amount + interface.outTankFreeAmount),
 					companyData.money >= 0 and math.huge or 0
 				)
-				addAmount = LocationSystem.storageRemove(locationConfig, selectedProducible, addAmount, "partial")
+				local freeAmount = math.min(interface.outTankFreeAmount, addAmount)
+				local storageAmount = addAmount - freeAmount
+				addAmount = freeAmount + LocationSystem.storageRemove(locationConfig, selectedProducible, storageAmount, "partial")
+				interface.outTankFreeAmount = interface.outTankFreeAmount - freeAmount
 				server.setVehicleTank(vehicleId, "fluid_out", amount + addAmount, fluidEnum)
 				interface.selectedTankAmount = amount + addAmount
 				setSelectedTankAmount = true
@@ -179,8 +196,7 @@ Variants.pump = {
 				if tankProducible ~= nil then
 					LocationSystem.storageAdd(locationConfig, tankProducible, amount, "force")  -- Should we be forcing it?
 				else
-					-- TODO: Do something :/
-					log_info(("Pump interface got producible that isn't valid %s %sL"):format(fluidEnum, amount))
+					log_error(("Pump interface got producible that isn't valid %s %sL"):format(fluidEnum, amount))
 				end
 			end
 		end
@@ -190,16 +206,15 @@ Variants.pump = {
 
 		if interface.selectedProducibleName ~= nil then
 			interface.locked = true
-		elseif interface.autoSelectCooldown <= 0 then  -- Don't reset until the company was refunded lost fluid.
+		elseif interface.locked then
 			interface.locked = false
+			if self.respawnOnDeselect then
+				InterfaceSystem.respawnInterfaceVehicle(vehicleId)
+			end
 		end
 
 		if interface.transferAmount ~= prevTransferAmount then
 			interface.binnet:send(21)
-		end
-
-		if interface.autoSelectCooldown ~= nil then
-			interface.autoSelectCooldown = interface.autoSelectCooldown - self.updateRate
 		end
 	end,
 }
@@ -216,7 +231,6 @@ Variants.pump.binnetBase:registerPacketReader(20, function(binnet, reader, packe
 	end
 
 	interface.selectedProducibleName = #reader > 0 and reader:readString() or nil
-	interface.autoSelectCooldown = 180
 	interface.transferAmount = 0
 	interface.transferMoney = 0
 end)
@@ -256,7 +270,6 @@ end)
 
 ---@class LoadedInterface_MineralInterface : LoadedInterface
 ---@field selectedProducibleName string?
----@field autoSelectCooldown number?
 ---@field transferState boolean # true to load minerals
 ---@field transferAmount number
 ---@field transferMoney number
@@ -378,6 +391,8 @@ Variants.mineral = {
 
 		if interface.selectedProducibleName ~= nil then
 			interface.locked = true
+		else
+			interface.locked = false
 		end
 
 		if interface.transferAmount ~= prevTransferAmount then
